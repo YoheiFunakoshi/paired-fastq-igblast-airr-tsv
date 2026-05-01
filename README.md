@@ -22,13 +22,13 @@
 
 IgBLASTでAIRR TSVを作成するには、V/D/Jのgermline databaseが必要です。このプロジェクトでは、IMGTから取得したヒトIgHのIGHV/IGHD/IGHJ FASTAをIgBLAST用に整形し、`makeblastdb` で作成したBLAST DBを使う想定です。
 
-このPCでは、次の参照データフォルダを標準として使います。
+このPCでは、作業フォルダ内の次の参照データフォルダを標準として使います。
 
 ```text
-C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt
+C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt
 ```
 
-実体が別フォルダにある場合でも、GUIは上記のASCII名フォルダをジャンクションとして作成して使います。これはIgBLAST/BLASTが日本語やスペースを含む参照データパスで失敗する場合を避けるためです。
+このフォルダがない場合は、Desktop直下の `IgBlast_refdata_edit_imgt`、または既存の参照データフォルダも探索します。これはIgBLAST/BLASTが日本語を含む参照データパスで失敗する場合を避けるためです。
 
 想定フォルダ構成:
 
@@ -118,7 +118,57 @@ sample_R1.fastq
 sample_R2.fastq
 ```
 
-大きい FASTQ は GitHub に載せない方針が安全です。GitHub にはソフト本体、説明文、必要なら小さいテスト用データだけを置きます。
+大きい FASTQ は GitHub に載せない方針が安全です。GitHub にはソフト本体、説明文、再現手順だけを置きます。
+
+## ローカル作業フォルダの構成
+
+このPCでは、Desktop上の次のフォルダを「後で使うための作業フォルダ」として使います。
+
+```text
+C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv
+```
+
+推奨構成:
+
+```text
+Paired Fastq IgBLAST AIRR tsv
+├─ Open Paired Fastq IgBLAST AIRR tsv.lnk
+├─ Launch Paired Fastq IgBLAST AIRR tsv.ps1
+├─ Paired Fastq IgBLAST AIRR tsv.ico
+├─ app
+│  └─ ソフト本体のコピー
+├─ refdata
+│  └─ IgBlast_refdata_edit_imgt
+│     ├─ db
+│     ├─ internal_data
+│     └─ optional_file
+├─ sample_R1.fastq.gz
+├─ sample_R2.fastq.gz
+└─ result.airr.tsv
+```
+
+`Open Paired Fastq IgBLAST AIRR tsv.lnk` をダブルクリックすると、作業フォルダ内の `app` を使ってGUIを起動します。
+
+`refdata/IgBlast_refdata_edit_imgt` にはIMGT由来のIgBLAST参照データを置きます。この参照データは解析に必要ですが、GitHubには含めません。
+
+## GitHubに置くものと置かないもの
+
+GitHubに置くもの:
+
+- Pythonソースコード
+- GUI/CLIの使い方
+- IgBLASTとIMGT参照データの準備方法
+- フォルダ構成
+- テストコード
+
+GitHubに置かないもの:
+
+- 研究用FASTQデータ
+- AIRR TSVなどの実解析結果
+- IMGT/IgBLAST参照DBの実ファイル
+- PC固有の個人フォルダにしか意味がない設定ファイル
+
+参照データ本体はGitHubには置かず、READMEの手順に従って各利用者のPCで準備します。
 
 ## 前提
 
@@ -290,10 +340,10 @@ paired-fastq-igblast-airr-tsv run `
   --r1 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R1.fastq.gz" `
   --r2 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R2.fastq.gz" `
   --out "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample.airr.tsv" `
-  --germline-db-v "C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt\db\IMGT_IGHV.imgt" `
-  --germline-db-d "C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt\db\IMGT_IGHD.imgt" `
-  --germline-db-j "C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt\db\IMGT_IGHJ.imgt" `
-  --auxiliary-data "C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt\optional_file\human_gl.aux" `
+  --germline-db-v "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHV.imgt" `
+  --germline-db-d "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHD.imgt" `
+  --germline-db-j "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHJ.imgt" `
+  --auxiliary-data "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt\optional_file\human_gl.aux" `
   --organism human `
   --domain-system imgt `
   --num-threads 4

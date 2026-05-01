@@ -8,3 +8,9 @@ dist/
 *.egg-info/
 *.airr.tsv
 *.queries.fasta
+*.fastq
+*.fastq.gz
+refdata/
+data/
+output/
+result_AIRR_outfmat/
