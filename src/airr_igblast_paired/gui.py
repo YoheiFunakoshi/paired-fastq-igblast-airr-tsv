@@ -9,6 +9,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from .igblast import IgBlastConfig
+from .naming import (
+    default_data_folder,
+    default_output_tsv_path,
+    default_query_fasta_path,
+    default_results_folder,
+)
 from .pipeline import run_paired_igblast
 from .prepare import ReadTransform
 
@@ -54,12 +60,19 @@ class App(ttk.Frame):
         self.master = master
         self.messages: queue.Queue[tuple[str, str]] = queue.Queue()
         self.vars: dict[str, tk.Variable] = {}
+        self.data_folder = default_data_folder()
+        self.results_folder = default_results_folder(self.data_folder)
+        self._auto_output_path = ""
+        self._output_overridden = False
+        self._setting_auto_path = False
         self._build_variables()
         self._build_layout()
+        self._attach_path_traces()
+        self._update_default_output_path()
         self._poll_messages()
 
     def _build_variables(self) -> None:
-        data_folder = Path.home() / "Desktop" / "Paired Fastq IgBLAST AIRR tsv"
+        data_folder = self.data_folder
         imgt_vdj = Path.home() / "Desktop" / "IgWork" / "IMGT_VDJ"
         refdata_root = _find_preferred_refdata_root()
         igblast_root = Path("C:/Program Files/NCBI/igblast-1.21.0")
@@ -82,7 +95,7 @@ class App(ttk.Frame):
         defaults: dict[str, str | int | float | bool] = {
             "r1": "",
             "r2": "",
-            "out": str(data_folder / "result.airr.tsv") if data_folder.exists() else "",
+            "out": "",
             "query_fasta": "",
             "igblastn": igblastn,
             "germline_db_v": str(germline_db_v) if _has_blast_db(germline_db_v) else "",
@@ -208,11 +221,92 @@ class App(ttk.Frame):
 
     def _browse(self, key: str, mode: str) -> None:
         if mode == "save":
-            path = filedialog.asksaveasfilename()
+            path = filedialog.asksaveasfilename(**self._save_dialog_options(key))
         else:
-            path = filedialog.askopenfilename()
+            path = filedialog.askopenfilename(**self._open_dialog_options(key))
         if path:
             self.vars[key].set(path)
+            if key in {"r1", "r2"}:
+                self._update_default_output_path()
+
+    def _open_dialog_options(self, key: str) -> dict[str, object]:
+        options: dict[str, object] = {}
+        if key in {"r1", "r2"} and self.data_folder.exists():
+            options["initialdir"] = str(self.data_folder)
+            options["filetypes"] = [
+                ("FASTQ files", "*.fastq *.fastq.gz *.fq *.fq.gz"),
+                ("All files", "*.*"),
+            ]
+        return options
+
+    def _save_dialog_options(self, key: str) -> dict[str, object]:
+        options: dict[str, object] = {}
+        if key == "out":
+            suggested = self._suggested_output_path()
+            options["defaultextension"] = ".tsv"
+            options["filetypes"] = [("TSV files", "*.tsv"), ("All files", "*.*")]
+        elif key == "query_fasta":
+            suggested = self._suggested_query_fasta_path()
+            options["defaultextension"] = ".fasta"
+            options["filetypes"] = [("FASTA files", "*.fasta *.fa"), ("All files", "*.*")]
+        else:
+            suggested = None
+
+        initialdir = suggested.parent if suggested else self.results_folder
+        try:
+            initialdir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+        options["initialdir"] = str(initialdir)
+        if suggested:
+            options["initialfile"] = suggested.name
+        return options
+
+    def _attach_path_traces(self) -> None:
+        self.vars["r1"].trace_add("write", lambda *_: self._update_default_output_path())
+        self.vars["r2"].trace_add("write", lambda *_: self._update_default_output_path())
+        self.vars["out"].trace_add("write", lambda *_: self._mark_output_overridden())
+
+    def _mark_output_overridden(self) -> None:
+        if self._setting_auto_path:
+            return
+        value = str(self.vars["out"].get()).strip()
+        self._output_overridden = bool(value and value != self._auto_output_path)
+
+    def _suggested_output_path(self) -> Path | None:
+        r1 = str(self.vars["r1"].get()).strip()
+        r2 = str(self.vars["r2"].get()).strip()
+        if not r1:
+            return None
+        return default_output_tsv_path(r1, r2 or None, self.data_folder)
+
+    def _suggested_query_fasta_path(self) -> Path | None:
+        r1 = str(self.vars["r1"].get()).strip()
+        r2 = str(self.vars["r2"].get()).strip()
+        if not r1:
+            return None
+        return default_query_fasta_path(r1, r2 or None, self.data_folder)
+
+    def _update_default_output_path(self) -> None:
+        suggested = self._suggested_output_path()
+        if not suggested:
+            return
+
+        current = str(self.vars["out"].get()).strip()
+        if (
+            self._output_overridden
+            and current != self._auto_output_path
+            and Path(current).name.lower() != "result.airr.tsv"
+        ):
+            return
+
+        self._setting_auto_path = True
+        try:
+            self._auto_output_path = str(suggested)
+            self.vars["out"].set(self._auto_output_path)
+            self._output_overridden = False
+        finally:
+            self._setting_auto_path = False
 
     def _browse_db_prefix(self, key: str) -> None:
         path = filedialog.askopenfilename()

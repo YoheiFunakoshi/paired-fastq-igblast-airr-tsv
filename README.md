@@ -108,7 +108,7 @@ C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv
 ```text
 sample_R1.fastq.gz
 sample_R2.fastq.gz
-sample.airr.tsv
+Results of Paired Fastq IgBLAST AIRR tsv\sample.airr.tsv
 ```
 
 非圧縮 FASTQ も使えます。
@@ -142,9 +142,10 @@ Paired Fastq IgBLAST AIRR tsv
 │     ├─ db
 │     ├─ internal_data
 │     └─ optional_file
+├─ Results of Paired Fastq IgBLAST AIRR tsv
+│  └─ sample.airr.tsv
 ├─ sample_R1.fastq.gz
-├─ sample_R2.fastq.gz
-└─ result.airr.tsv
+└─ sample_R2.fastq.gz
 ```
 
 `Open Paired Fastq IgBLAST AIRR tsv.lnk` をダブルクリックすると、作業フォルダ内の `app` を使ってGUIを起動します。
@@ -218,7 +219,8 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
 
 - `Output TSV`
   - IgBLAST の AIRR TSV 出力先です。
-  - 例: `sample.airr.tsv`
+  - R1/R2 FASTQ を選ぶと、標準では作業フォルダ内の `Results of Paired Fastq IgBLAST AIRR tsv` に自動設定されます。
+  - ファイル名にはFASTQの共通サンプル名を使います。例: `KKF103hG_S57_L001_R1_001.fastq` と `KKF103hG_S57_L001_R2_001.fastq` から `KKF103hG_S57_L001.airr.tsv` を作ります。
   - `Browse` ボタンで保存先を指定します。
 
 - `Keep query FASTA`
@@ -339,7 +341,7 @@ R1/R2 から AIRR TSV を作る例:
 paired-fastq-igblast-airr-tsv run `
   --r1 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R1.fastq.gz" `
   --r2 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R2.fastq.gz" `
-  --out "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample.airr.tsv" `
+  --out "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\Results of Paired Fastq IgBLAST AIRR tsv\sample.airr.tsv" `
   --germline-db-v "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHV.imgt" `
   --germline-db-d "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHD.imgt" `
   --germline-db-j "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHJ.imgt" `
@@ -355,7 +357,7 @@ IgBLAST に渡す FASTA だけを作る例:
 paired-fastq-igblast-airr-tsv prepare `
   --r1 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R1.fastq.gz" `
   --r2 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R2.fastq.gz" `
-  --out-fasta "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample.queries.fasta"
+  --out-fasta "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\Results of Paired Fastq IgBLAST AIRR tsv\sample.queries.fasta"
 ```
 
 `run` でも `--query-fasta sample.queries.fasta` を付けると、中間 FASTA を保存できます。
