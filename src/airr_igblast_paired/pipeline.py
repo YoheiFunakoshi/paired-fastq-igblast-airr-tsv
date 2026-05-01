@@ -37,6 +37,17 @@ def run_paired_igblast(
     max_n_rate: float = 1.0,
     strict_ids: bool = True,
 ) -> PipelineResult:
+    if not str(r1_path).strip():
+        raise ValueError("R1 FASTQ is required")
+    if not str(r2_path).strip():
+        raise ValueError("R2 FASTQ is required")
+    if not str(output_tsv).strip():
+        raise ValueError("Output TSV is required")
+    if not igblast_config.germline_db_v.strip():
+        raise ValueError("V DB prefix is required")
+    if not igblast_config.germline_db_j.strip():
+        raise ValueError("J DB prefix is required")
+
     output_tsv = Path(output_tsv)
     output_tsv.parent.mkdir(parents=True, exist_ok=True)
 

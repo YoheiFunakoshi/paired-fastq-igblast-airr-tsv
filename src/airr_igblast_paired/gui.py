@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import queue
+import shutil
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
@@ -22,16 +23,22 @@ class App(ttk.Frame):
         self._poll_messages()
 
     def _build_variables(self) -> None:
+        data_folder = Path.home() / "Desktop" / "Paired Fastq IgBLAST AIRR tsv"
+        imgt_vdj = Path.home() / "Desktop" / "IgWork" / "IMGT_VDJ"
+        igblast_root = Path("C:/Program Files/NCBI/igblast-1.21.0")
+        igblastn = shutil.which("igblastn") or str(igblast_root / "bin" / "igblastn.exe")
+        aux_file = igblast_root / "optional_file" / "human_gl.aux"
+
         defaults: dict[str, str | int | float | bool] = {
             "r1": "",
             "r2": "",
-            "out": "",
+            "out": str(data_folder / "result.airr.tsv") if data_folder.exists() else "",
             "query_fasta": "",
-            "igblastn": "igblastn",
-            "germline_db_v": "",
-            "germline_db_d": "",
-            "germline_db_j": "",
-            "auxiliary_data": "",
+            "igblastn": igblastn,
+            "germline_db_v": str(imgt_vdj / "human_IGHV_IMGT") if (imgt_vdj / "human_IGHV_IMGT.nsq").exists() else "",
+            "germline_db_d": str(imgt_vdj / "human_IGHD_IMGT") if (imgt_vdj / "human_IGHD_IMGT.nsq").exists() else "",
+            "germline_db_j": str(imgt_vdj / "human_IGHJ_IMGT") if (imgt_vdj / "human_IGHJ_IMGT.nsq").exists() else "",
+            "auxiliary_data": str(aux_file) if aux_file.exists() else "",
             "organism": "human",
             "domain_system": "imgt",
             "ig_seqtype": "Ig",
@@ -75,9 +82,9 @@ class App(ttk.Frame):
         row += 1
 
         row = self._add_file_row(row, "igblastn", "igblastn", "open")
-        row = self._add_file_row(row, "V DB prefix", "germline_db_v", "open")
-        row = self._add_file_row(row, "D DB prefix", "germline_db_d", "open")
-        row = self._add_file_row(row, "J DB prefix", "germline_db_j", "open")
+        row = self._add_db_row(row, "V DB prefix", "germline_db_v")
+        row = self._add_db_row(row, "D DB prefix", "germline_db_d")
+        row = self._add_db_row(row, "J DB prefix", "germline_db_j")
         row = self._add_file_row(row, "Aux file", "auxiliary_data", "open")
 
         row = self._add_entry_row(row, "Organism", "organism")
@@ -118,6 +125,16 @@ class App(ttk.Frame):
         ttk.Button(self, text="Browse", command=lambda: self._browse(key, mode)).grid(row=row, column=2, padx=(8, 0))
         return row + 1
 
+    def _add_db_row(self, row: int, label: str, key: str) -> int:
+        ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
+        ttk.Entry(self, textvariable=self.vars[key]).grid(row=row, column=1, sticky="ew", pady=3)
+        ttk.Button(self, text="Browse", command=lambda: self._browse_db_prefix(key)).grid(
+            row=row,
+            column=2,
+            padx=(8, 0),
+        )
+        return row + 1
+
     def _add_entry_row(self, row: int, label: str, key: str) -> int:
         ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
         ttk.Entry(self, textvariable=self.vars[key]).grid(row=row, column=1, columnspan=2, sticky="ew", pady=3)
@@ -147,11 +164,56 @@ class App(ttk.Frame):
         if path:
             self.vars[key].set(path)
 
+    def _browse_db_prefix(self, key: str) -> None:
+        path = filedialog.askopenfilename()
+        if not path:
+            return
+        selected = Path(path)
+        db_suffixes = {
+            ".ndb",
+            ".nhr",
+            ".nin",
+            ".nog",
+            ".nos",
+            ".not",
+            ".nsq",
+            ".ntf",
+            ".nto",
+            ".phr",
+            ".pin",
+            ".pog",
+            ".psd",
+            ".psi",
+            ".psq",
+        }
+        if selected.suffix.lower() in db_suffixes:
+            selected = selected.with_suffix("")
+        self.vars[key].set(str(selected))
+
     def _start_run(self) -> None:
+        missing = self._missing_required_fields()
+        if missing:
+            messagebox.showerror(
+                "AIRR IgBLAST",
+                "次の項目を入力してください:\n\n" + "\n".join(f"- {name}" for name in missing),
+            )
+            return
         self.run_button.configure(state="disabled")
         self._log("Starting IgBLAST run...")
         thread = threading.Thread(target=self._run_pipeline, daemon=True)
         thread.start()
+
+    def _missing_required_fields(self) -> list[str]:
+        required = [
+            ("R1 FASTQ", "r1"),
+            ("R2 FASTQ", "r2"),
+            ("Output TSV", "out"),
+            ("igblastn", "igblastn"),
+            ("V DB prefix", "germline_db_v"),
+            ("J DB prefix", "germline_db_j"),
+            ("Aux file", "auxiliary_data"),
+        ]
+        return [label for label, key in required if not str(self.vars[key].get()).strip()]
 
     def _run_pipeline(self) -> None:
         try:
