@@ -1,8 +1,32 @@
-# AIRR IgBLAST Paired
+# Paired Fastq IgBLAST AIRR tsv
 
-R1/R2 の paired-end FASTQ を **マージせず**、R1 と R2 を別々の IgBLAST query として `igblastn -outfmt 19` に渡し、AIRR Rearrangement TSV を出力するツールです。
+ペアの FASTQ ファイル、つまり R1 と R2 から IgBLAST を実行し、AIRR 形式の TSV ファイルを作成するツールです。
 
-GUI から実行することも、CLI から実行することもできます。
+R1 と R2 はマージしません。IgBLAST には `read_id|R1` と `read_id|R2` のように、別々の query として渡します。
+
+## データ置き場
+
+サンプル FASTQ や結果 TSV のやり取りには、Desktop に作成した次のフォルダを使って大丈夫です。
+
+```text
+C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv
+```
+
+推奨ファイル名:
+
+```text
+sample_R1.fastq.gz
+sample_R2.fastq.gz
+```
+
+非圧縮 FASTQ でも使えます。
+
+```text
+sample_R1.fastq
+sample_R2.fastq
+```
+
+大きい FASTQ は GitHub に載せない方針が安全です。GitHub にはソフト本体と、必要なら小さいテスト用データだけを入れます。
 
 ## 前提
 
@@ -29,7 +53,7 @@ python -m airr_igblast_paired --help
 ## GUI
 
 ```powershell
-airr-igblast-paired gui
+paired-fastq-igblast-airr-tsv gui
 ```
 
 GUI では次を指定できます。
@@ -51,10 +75,10 @@ GUI では次を指定できます。
 R1/R2 から AIRR TSV を作る例:
 
 ```powershell
-airr-igblast-paired run `
-  --r1 sample_R1.fastq.gz `
-  --r2 sample_R2.fastq.gz `
-  --out sample.airr.tsv `
+paired-fastq-igblast-airr-tsv run `
+  --r1 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R1.fastq.gz" `
+  --r2 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R2.fastq.gz" `
+  --out "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample.airr.tsv" `
   --germline-db-v "C:\Program Files\NCBI\igblast-1.21.0\database\human_gl_V" `
   --germline-db-d "C:\Program Files\NCBI\igblast-1.21.0\database\human_gl_D" `
   --germline-db-j "C:\Program Files\NCBI\igblast-1.21.0\database\human_gl_J" `
@@ -67,10 +91,10 @@ airr-igblast-paired run `
 IgBLAST に渡す FASTA だけを作る例:
 
 ```powershell
-airr-igblast-paired prepare `
-  --r1 sample_R1.fastq.gz `
-  --r2 sample_R2.fastq.gz `
-  --out-fasta sample.queries.fasta
+paired-fastq-igblast-airr-tsv prepare `
+  --r1 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R1.fastq.gz" `
+  --r2 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R2.fastq.gz" `
+  --out-fasta "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample.queries.fasta"
 ```
 
 `run` でも `--query-fasta sample.queries.fasta` を付けると、中間 FASTA を保存できます。
@@ -98,12 +122,6 @@ airr-igblast-paired prepare `
 --min-length 80
 --max-n-rate 0.10
 --query-name-template "{read_id}|{read}"
-```
-
-標準エラーには簡単な処理統計が出ます。
-
-```text
-prepare stats: total_pairs=1000, records_written=2000, r1_written=1000, r2_written=1000, skipped_too_short=0, skipped_n_rate=0
 ```
 
 ## テスト

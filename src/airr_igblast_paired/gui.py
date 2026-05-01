@@ -224,7 +224,7 @@ class App(ttk.Frame):
 
 def main() -> None:
     root = tk.Tk()
-    root.title("AIRR IgBLAST GUI")
+    root.title("Paired Fastq IgBLAST AIRR tsv")
     root.geometry("900x760")
     App(root)
     root.mainloop()

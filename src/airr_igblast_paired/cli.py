@@ -154,7 +154,7 @@ def _gui(_: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="airr-igblast-paired",
+        prog="paired-fastq-igblast-airr-tsv",
         description="Create AIRR TSV output from paired FASTQ files using IgBLAST outfmt 19.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
