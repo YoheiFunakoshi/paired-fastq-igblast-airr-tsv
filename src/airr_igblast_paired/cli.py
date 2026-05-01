@@ -62,7 +62,7 @@ def _add_igblast_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--domain-system", default="imgt", help="IgBLAST domain system.")
     parser.add_argument("--ig-seqtype", default="Ig", help="IgBLAST sequence type.")
     parser.add_argument("--auxiliary-data", help="IgBLAST auxiliary data file, for example human_gl.aux.")
-    parser.add_argument("--num-threads", type=int, default=1, help="Number of IgBLAST threads.")
+    parser.add_argument("--num-threads", type=int, default=4, help="Number of IgBLAST threads.")
     parser.add_argument(
         "--extra-igblast-arg",
         action="append",
@@ -138,6 +138,7 @@ def _run(args: argparse.Namespace) -> int:
         min_length=args.min_length,
         max_n_rate=args.max_n_rate,
         strict_ids=not args.allow_id_mismatch,
+        work_dir=args.work_dir,
     )
     _print_stats(result.stats)
     print("ran: " + " ".join(result.command), file=sys.stderr)
@@ -173,6 +174,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_igblast_args(run_parser)
     run_parser.add_argument("--out", required=True, help="Output AIRR TSV path.")
     run_parser.add_argument("--query-fasta", help="Optional path to keep the IgBLAST query FASTA.")
+    run_parser.add_argument(
+        "--work-dir",
+        help="Optional local scratch directory for IgBLAST input/output before copying final files.",
+    )
     run_parser.set_defaults(func=_run)
 
     gui_parser = subparsers.add_parser("gui", help="Open the local GUI.")

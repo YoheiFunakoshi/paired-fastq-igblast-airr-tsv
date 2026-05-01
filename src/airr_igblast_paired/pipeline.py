@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import os
+import shutil
 import tempfile
+import uuid
 
 from .igblast import IgBlastConfig, run_igblast
 from .prepare import (
@@ -22,6 +24,13 @@ class PipelineResult:
     output_tsv: Path
 
 
+def default_work_dir() -> Path:
+    base = os.environ.get("LOCALAPPDATA")
+    if base:
+        return Path(base) / "PairedFastqIgblastAirrTsv" / "work"
+    return Path(tempfile.gettempdir()) / "PairedFastqIgblastAirrTsv" / "work"
+
+
 def run_paired_igblast(
     *,
     r1_path: str | Path,
@@ -36,6 +45,7 @@ def run_paired_igblast(
     min_length: int = 0,
     max_n_rate: float = 1.0,
     strict_ids: bool = True,
+    work_dir: str | Path | None = None,
 ) -> PipelineResult:
     if not str(r1_path).strip():
         raise ValueError("R1 FASTQ is required")
@@ -50,13 +60,46 @@ def run_paired_igblast(
 
     output_tsv = Path(output_tsv)
     output_tsv.parent.mkdir(parents=True, exist_ok=True)
+    final_query_fasta = Path(query_fasta) if query_fasta else None
+    if final_query_fasta:
+        final_query_fasta.parent.mkdir(parents=True, exist_ok=True)
 
-    if query_fasta:
-        query_fasta_path = Path(query_fasta)
+    if work_dir:
+        work_root = Path(work_dir)
+        work_root.mkdir(parents=True, exist_ok=True)
+        scratch_dir = work_root / f"{output_tsv.stem}.{uuid.uuid4().hex[:8]}"
+        scratch_dir.mkdir()
+        scratch_query = scratch_dir / (final_query_fasta.name if final_query_fasta else f"{output_tsv.stem}.queries.fasta")
+        scratch_output = scratch_dir / output_tsv.name
+        success = False
+        try:
+            stats = prepare_paired_fastq_to_fasta(
+                r1_path,
+                r2_path,
+                scratch_query,
+                read_selection=read_selection,
+                r1_transform=r1_transform,
+                r2_transform=r2_transform,
+                query_name_template=query_name_template,
+                min_length=min_length,
+                max_n_rate=max_n_rate,
+                strict_ids=strict_ids,
+            )
+            command = run_igblast(scratch_query, scratch_output, igblast_config)
+            shutil.copy2(scratch_output, output_tsv)
+            if final_query_fasta:
+                shutil.copy2(scratch_query, final_query_fasta)
+            success = True
+            return PipelineResult(stats, command, final_query_fasta, output_tsv)
+        finally:
+            if success:
+                shutil.rmtree(scratch_dir, ignore_errors=True)
+
+    if final_query_fasta:
         stats = prepare_paired_fastq_to_fasta(
             r1_path,
             r2_path,
-            query_fasta_path,
+            final_query_fasta,
             read_selection=read_selection,
             r1_transform=r1_transform,
             r2_transform=r2_transform,
@@ -65,8 +108,8 @@ def run_paired_igblast(
             max_n_rate=max_n_rate,
             strict_ids=strict_ids,
         )
-        command = run_igblast(query_fasta_path, output_tsv, igblast_config)
-        return PipelineResult(stats, command, query_fasta_path, output_tsv)
+        command = run_igblast(final_query_fasta, output_tsv, igblast_config)
+        return PipelineResult(stats, command, final_query_fasta, output_tsv)
 
     fd, temp_name = tempfile.mkstemp(
         prefix=f"{output_tsv.stem}.",

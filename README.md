@@ -15,6 +15,7 @@
 - GUI: あり
 - CLI: あり
 - 確認済み IgBLAST: `igblastn 1.21.0`
+- GUIの標準スレッド数: `4`
 
 このリポジトリには IgBLAST 本体、IgBLAST germline database、大きな FASTQ データは含めません。利用者のPCに IgBLAST と database を用意してから使います。
 
@@ -224,8 +225,9 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
   - `Browse` ボタンで保存先を指定します。
 
 - `Keep query FASTA`
-  - IgBLAST に渡す中間 FASTA を保存したい場合に指定します。
-  - 空欄のままなら、一時ファイルとして作成し、解析後に削除します。
+  - IgBLAST に渡す中間 FASTA の保存先です。
+  - R1/R2 FASTQ を選ぶと、標準では `Results of Paired Fastq IgBLAST AIRR tsv` 内の `<サンプル名>.queries.fasta` に自動設定されます。
+  - 空欄にした場合は、一時ファイルとして作成し、解析後に削除します。
   - トラブルシューティングやquery内容の確認をしたい場合は指定してください。
 
 ### IgBLAST 設定
@@ -269,7 +271,8 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
 
 - `Threads`
   - IgBLAST の実行スレッド数です。
-  - 大きな FASTQ では `4` などに増やすと速くなる場合があります。
+  - GUIの標準値は `4` です。
+  - 大きな FASTQ ではCPUに余裕があれば `8` などに増やすと速くなる場合があります。
 
 ### R1/R2 の処理条件
 
@@ -328,6 +331,7 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
   - FASTQ から中間 FASTA を作成し、IgBLAST を実行して AIRR TSV を作成します。
   - 実行中は処理が完了するまで待ちます。
   - 成功すると、出力 TSV の場所と処理した read 数が表示されます。
+  - GUIではIgBLASTの作業ファイルをPC内のローカル一時フォルダで作り、完了後にResultsフォルダへコピーします。Desktop/OneDrive配下へ巨大TSVを長時間直接書き続けることを避けるためです。
 
 ### ログ表示欄
 
@@ -348,7 +352,8 @@ paired-fastq-igblast-airr-tsv run `
   --auxiliary-data "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\refdata\IgBlast_refdata_edit_imgt\optional_file\human_gl.aux" `
   --organism human `
   --domain-system imgt `
-  --num-threads 4
+  --num-threads 4 `
+  --work-dir "$env:LOCALAPPDATA\PairedFastqIgblastAirrTsv\work"
 ```
 
 IgBLAST に渡す FASTA だけを作る例:

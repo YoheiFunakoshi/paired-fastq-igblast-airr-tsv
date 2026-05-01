@@ -15,7 +15,7 @@ from .naming import (
     default_query_fasta_path,
     default_results_folder,
 )
-from .pipeline import run_paired_igblast
+from .pipeline import default_work_dir, run_paired_igblast
 from .prepare import ReadTransform
 
 
@@ -63,12 +63,14 @@ class App(ttk.Frame):
         self.data_folder = default_data_folder()
         self.results_folder = default_results_folder(self.data_folder)
         self._auto_output_path = ""
+        self._auto_query_fasta_path = ""
         self._output_overridden = False
+        self._query_fasta_overridden = False
         self._setting_auto_path = False
         self._build_variables()
         self._build_layout()
         self._attach_path_traces()
-        self._update_default_output_path()
+        self._update_default_result_paths()
         self._poll_messages()
 
     def _build_variables(self) -> None:
@@ -105,7 +107,7 @@ class App(ttk.Frame):
             "organism": "human",
             "domain_system": "imgt",
             "ig_seqtype": "Ig",
-            "num_threads": 1,
+            "num_threads": 4,
             "read_selection": "both",
             "r1_orientation": "forward",
             "r2_orientation": "reverse-complement",
@@ -227,7 +229,7 @@ class App(ttk.Frame):
         if path:
             self.vars[key].set(path)
             if key in {"r1", "r2"}:
-                self._update_default_output_path()
+                self._update_default_result_paths()
 
     def _open_dialog_options(self, key: str) -> dict[str, object]:
         options: dict[str, object] = {}
@@ -263,15 +265,22 @@ class App(ttk.Frame):
         return options
 
     def _attach_path_traces(self) -> None:
-        self.vars["r1"].trace_add("write", lambda *_: self._update_default_output_path())
-        self.vars["r2"].trace_add("write", lambda *_: self._update_default_output_path())
+        self.vars["r1"].trace_add("write", lambda *_: self._update_default_result_paths())
+        self.vars["r2"].trace_add("write", lambda *_: self._update_default_result_paths())
         self.vars["out"].trace_add("write", lambda *_: self._mark_output_overridden())
+        self.vars["query_fasta"].trace_add("write", lambda *_: self._mark_query_fasta_overridden())
 
     def _mark_output_overridden(self) -> None:
         if self._setting_auto_path:
             return
         value = str(self.vars["out"].get()).strip()
         self._output_overridden = bool(value and value != self._auto_output_path)
+
+    def _mark_query_fasta_overridden(self) -> None:
+        if self._setting_auto_path:
+            return
+        value = str(self.vars["query_fasta"].get()).strip()
+        self._query_fasta_overridden = bool(value and value != self._auto_query_fasta_path)
 
     def _suggested_output_path(self) -> Path | None:
         r1 = str(self.vars["r1"].get()).strip()
@@ -287,24 +296,38 @@ class App(ttk.Frame):
             return None
         return default_query_fasta_path(r1, r2 or None, self.data_folder)
 
-    def _update_default_output_path(self) -> None:
-        suggested = self._suggested_output_path()
-        if not suggested:
+    def _update_default_result_paths(self) -> None:
+        suggested_output = self._suggested_output_path()
+        suggested_query = self._suggested_query_fasta_path()
+        if not suggested_output:
             return
 
-        current = str(self.vars["out"].get()).strip()
+        current_output = str(self.vars["out"].get()).strip()
+        current_query = str(self.vars["query_fasta"].get()).strip()
         if (
             self._output_overridden
-            and current != self._auto_output_path
-            and Path(current).name.lower() != "result.airr.tsv"
+            and current_output != self._auto_output_path
+            and Path(current_output).name.lower() != "result.airr.tsv"
         ):
-            return
+            update_output = False
+        else:
+            update_output = True
+
+        if self._query_fasta_overridden and current_query != self._auto_query_fasta_path:
+            update_query = False
+        else:
+            update_query = suggested_query is not None
 
         self._setting_auto_path = True
         try:
-            self._auto_output_path = str(suggested)
-            self.vars["out"].set(self._auto_output_path)
-            self._output_overridden = False
+            if update_output:
+                self._auto_output_path = str(suggested_output)
+                self.vars["out"].set(self._auto_output_path)
+                self._output_overridden = False
+            if update_query and suggested_query is not None:
+                self._auto_query_fasta_path = str(suggested_query)
+                self.vars["query_fasta"].set(self._auto_query_fasta_path)
+                self._query_fasta_overridden = False
         finally:
             self._setting_auto_path = False
 
@@ -393,6 +416,7 @@ class App(ttk.Frame):
                 max_n_rate=float(self.vars["max_n_rate"].get()),
                 query_name_template=self.vars["query_name_template"].get(),
                 strict_ids=bool(self.vars["strict_ids"].get()),
+                work_dir=default_work_dir(),
             )
         except Exception as exc:
             self.messages.put(("error", str(exc)))

@@ -7,6 +7,19 @@ from airr_igblast_paired.igblast import IgBlastConfig, build_igblast_command
 
 
 class IgBlastTests(unittest.TestCase):
+    def test_default_threads_is_four(self) -> None:
+        command = build_igblast_command(
+            Path("queries.fasta"),
+            Path("out.tsv"),
+            IgBlastConfig(
+                igblastn="igblastn",
+                germline_db_v="human_gl_V",
+                germline_db_j="human_gl_J",
+            ),
+        )
+
+        self.assertEqual(command[command.index("-num_threads") + 1], "4")
+
     def test_build_igblast_command_uses_airr_outfmt_19(self) -> None:
         command = build_igblast_command(
             Path("queries.fasta"),

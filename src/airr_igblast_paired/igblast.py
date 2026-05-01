@@ -18,7 +18,7 @@ class IgBlastConfig:
     domain_system: str = "imgt"
     ig_seqtype: str = "Ig"
     auxiliary_data: str | None = None
-    num_threads: int = 1
+    num_threads: int = 4
     extra_args: list[str] = field(default_factory=list)
 
 
@@ -99,12 +99,26 @@ def _db_prefix_to_windows_short_path(prefix: str) -> str:
     return prefix
 
 
+def _file_to_windows_short_path(path_text: str) -> str:
+    if os.name != "nt" or not path_text:
+        return path_text
+
+    path = Path(path_text)
+    if path.exists():
+        return _windows_short_path(path)
+    if path.parent.exists():
+        return str(Path(_windows_short_path(path.parent)) / path.name)
+    return path_text
+
+
 def _normalize_command_for_windows(command: list[str]) -> list[str]:
     if os.name != "nt":
         return command
 
     normalized = list(command)
     path_flags = {
+        "-query": "file",
+        "-out": "file",
         "-germline_db_V": "db",
         "-germline_db_D": "db",
         "-germline_db_J": "db",
@@ -119,8 +133,8 @@ def _normalize_command_for_windows(command: list[str]) -> list[str]:
         if previous in path_flags:
             if path_flags[previous] == "db":
                 normalized[index] = _db_prefix_to_windows_short_path(value)
-            elif Path(value).exists():
-                normalized[index] = _windows_short_path(value)
+            else:
+                normalized[index] = _file_to_windows_short_path(value)
     return normalized
 
 
