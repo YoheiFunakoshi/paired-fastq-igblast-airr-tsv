@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import queue
 import shutil
+import subprocess
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
@@ -10,6 +11,38 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 from .igblast import IgBlastConfig
 from .pipeline import run_paired_igblast
 from .prepare import ReadTransform
+
+
+def _has_blast_db(prefix: Path) -> bool:
+    return Path(str(prefix) + ".nsq").exists()
+
+
+def _find_preferred_refdata_root() -> Path | None:
+    desktop = Path.home() / "Desktop"
+    desktop_refdata = desktop / "IgBlast_refdata_edit_imgt"
+    nested_refdata = desktop / "大切なフォルダ レパトア解析" / "IgBlast_refdata_edit_imgt"
+
+    if not desktop_refdata.exists() and nested_refdata.exists():
+        subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(desktop_refdata), str(nested_refdata)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    candidates = [
+        desktop_refdata,
+        nested_refdata,
+    ]
+    for root in candidates:
+        if (
+            _has_blast_db(root / "db" / "IMGT_IGHV.imgt")
+            and _has_blast_db(root / "db" / "IMGT_IGHD.imgt")
+            and _has_blast_db(root / "db" / "IMGT_IGHJ.imgt")
+            and (root / "optional_file" / "human_gl.aux").exists()
+        ):
+            return root
+    return None
 
 
 class App(ttk.Frame):
@@ -25,9 +58,23 @@ class App(ttk.Frame):
     def _build_variables(self) -> None:
         data_folder = Path.home() / "Desktop" / "Paired Fastq IgBLAST AIRR tsv"
         imgt_vdj = Path.home() / "Desktop" / "IgWork" / "IMGT_VDJ"
+        refdata_root = _find_preferred_refdata_root()
         igblast_root = Path("C:/Program Files/NCBI/igblast-1.21.0")
         igblastn = shutil.which("igblastn") or str(igblast_root / "bin" / "igblastn.exe")
-        aux_file = igblast_root / "optional_file" / "human_gl.aux"
+        aux_file = (
+            refdata_root / "optional_file" / "human_gl.aux"
+            if refdata_root
+            else igblast_root / "optional_file" / "human_gl.aux"
+        )
+
+        if refdata_root:
+            germline_db_v = refdata_root / "db" / "IMGT_IGHV.imgt"
+            germline_db_d = refdata_root / "db" / "IMGT_IGHD.imgt"
+            germline_db_j = refdata_root / "db" / "IMGT_IGHJ.imgt"
+        else:
+            germline_db_v = imgt_vdj / "human_IGHV_IMGT"
+            germline_db_d = imgt_vdj / "human_IGHD_IMGT"
+            germline_db_j = imgt_vdj / "human_IGHJ_IMGT"
 
         defaults: dict[str, str | int | float | bool] = {
             "r1": "",
@@ -35,9 +82,9 @@ class App(ttk.Frame):
             "out": str(data_folder / "result.airr.tsv") if data_folder.exists() else "",
             "query_fasta": "",
             "igblastn": igblastn,
-            "germline_db_v": str(imgt_vdj / "human_IGHV_IMGT") if (imgt_vdj / "human_IGHV_IMGT.nsq").exists() else "",
-            "germline_db_d": str(imgt_vdj / "human_IGHD_IMGT") if (imgt_vdj / "human_IGHD_IMGT.nsq").exists() else "",
-            "germline_db_j": str(imgt_vdj / "human_IGHJ_IMGT") if (imgt_vdj / "human_IGHJ_IMGT.nsq").exists() else "",
+            "germline_db_v": str(germline_db_v) if _has_blast_db(germline_db_v) else "",
+            "germline_db_d": str(germline_db_d) if _has_blast_db(germline_db_d) else "",
+            "germline_db_j": str(germline_db_j) if _has_blast_db(germline_db_j) else "",
             "auxiliary_data": str(aux_file) if aux_file.exists() else "",
             "organism": "human",
             "domain_system": "imgt",

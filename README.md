@@ -10,12 +10,67 @@
 - 入力: R1 FASTQ と R2 FASTQ
 - 中間処理: R1/R2 を別々の FASTA query に変換
 - 解析: NCBI IgBLAST の `igblastn`
+- 参照データ: IMGT由来のIGHV/IGHD/IGHJ配列をIgBLAST用に整形したBLAST DB
 - 出力: IgBLAST `-outfmt 19` による AIRR Rearrangement TSV
 - GUI: あり
 - CLI: あり
 - 確認済み IgBLAST: `igblastn 1.21.0`
 
 このリポジトリには IgBLAST 本体、IgBLAST germline database、大きな FASTQ データは含めません。利用者のPCに IgBLAST と database を用意してから使います。
+
+## IMGT参照データについて
+
+IgBLASTでAIRR TSVを作成するには、V/D/Jのgermline databaseが必要です。このプロジェクトでは、IMGTから取得したヒトIgHのIGHV/IGHD/IGHJ FASTAをIgBLAST用に整形し、`makeblastdb` で作成したBLAST DBを使う想定です。
+
+このPCでは、次の参照データフォルダを標準として使います。
+
+```text
+C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt
+```
+
+実体が別フォルダにある場合でも、GUIは上記のASCII名フォルダをジャンクションとして作成して使います。これはIgBLAST/BLASTが日本語やスペースを含む参照データパスで失敗する場合を避けるためです。
+
+想定フォルダ構成:
+
+```text
+IgBlast_refdata_edit_imgt
+├─ db
+│  ├─ IMGT_IGHV.imgt.*
+│  ├─ IMGT_IGHD.imgt.*
+│  └─ IMGT_IGHJ.imgt.*
+├─ internal_data
+└─ optional_file
+   └─ human_gl.aux
+```
+
+GUIはこのフォルダが見つかる場合、次の値を自動入力します。
+
+```text
+V DB prefix: ...\db\IMGT_IGHV.imgt
+D DB prefix: ...\db\IMGT_IGHD.imgt
+J DB prefix: ...\db\IMGT_IGHJ.imgt
+Aux file:    ...\optional_file\human_gl.aux
+```
+
+IMGT FASTAのヘッダは、そのままだとIgBLASTで扱いにくい場合があります。推奨はIgBLAST付属の `edit_imgt_file.pl` でヘッダを整形してから `makeblastdb` する方法です。
+
+例:
+
+```powershell
+perl "C:\Program Files\NCBI\igblast-1.21.0\bin\edit_imgt_file.pl" IMGT_IGHV.fasta > IMGT_IGHV.imgt.fasta
+perl "C:\Program Files\NCBI\igblast-1.21.0\bin\edit_imgt_file.pl" IMGT_IGHD.fasta > IMGT_IGHD.imgt.fasta
+perl "C:\Program Files\NCBI\igblast-1.21.0\bin\edit_imgt_file.pl" IMGT_IGHJ.fasta > IMGT_IGHJ.imgt.fasta
+```
+
+DB作成例:
+
+```powershell
+makeblastdb -parse_seqids -dbtype nucl -in IMGT_IGHV.imgt.fasta -out db\IMGT_IGHV.imgt
+makeblastdb -parse_seqids -dbtype nucl -in IMGT_IGHD.imgt.fasta -out db\IMGT_IGHD.imgt
+makeblastdb -parse_seqids -dbtype nucl -in IMGT_IGHJ.imgt.fasta -out db\IMGT_IGHJ.imgt
+```
+
+研究者間で結果を比較する場合は、IgBLASTのバージョン、IMGT参照データの取得日、ヘッダ整形方法、`makeblastdb` の条件を記録してください。
 
 ## IgBLAST について
 
@@ -70,7 +125,7 @@ sample_R2.fastq
 - Python 3.10 以上
 - `igblastn` が実行できること
 - IgBLAST 用 germline DB が用意済みであること
-  - 例: `human_gl_V`, `human_gl_D`, `human_gl_J`
+  - 例: `IMGT_IGHV.imgt`, `IMGT_IGHD.imgt`, `IMGT_IGHJ.imgt`
   - DB 名は `makeblastdb` 後のファイル接尾辞を除いた prefix を指定します。
 - CDR/FWR 情報が必要な場合は、IgBLAST 付属の `.aux` ファイルも指定します。
 
@@ -130,21 +185,22 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
 
 - `V DB prefix`
   - IgBLAST の V germline database prefix を指定します。
-  - 例: `C:\Program Files\NCBI\igblast-1.21.0\database\human_gl_V`
+  - 標準例: `...\IgBlast_refdata_edit_imgt\db\IMGT_IGHV.imgt`
   - `.nhr`, `.nin`, `.nsq` などの拡張子を除いた名前を指定します。
 
 - `D DB prefix`
   - IgBLAST の D germline database prefix を指定します。
   - heavy chain 解析では通常指定します。
+  - 標準例: `...\IgBlast_refdata_edit_imgt\db\IMGT_IGHD.imgt`
   - light chain だけを対象にする場合など、不要な条件では空欄でも使えます。
 
 - `J DB prefix`
   - IgBLAST の J germline database prefix を指定します。
-  - 例: `C:\Program Files\NCBI\igblast-1.21.0\database\human_gl_J`
+  - 標準例: `...\IgBlast_refdata_edit_imgt\db\IMGT_IGHJ.imgt`
 
 - `Aux file`
   - IgBLAST の auxiliary data file を指定します。
-  - 例: `human_gl.aux`
+  - 標準例: `...\IgBlast_refdata_edit_imgt\optional_file\human_gl.aux`
   - CDR/FWR 領域などの情報を出したい場合に重要です。
 
 - `Organism`
@@ -234,10 +290,10 @@ paired-fastq-igblast-airr-tsv run `
   --r1 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R1.fastq.gz" `
   --r2 "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample_R2.fastq.gz" `
   --out "C:\Users\Yohei Funakoshi\Desktop\Paired Fastq IgBLAST AIRR tsv\sample.airr.tsv" `
-  --germline-db-v "C:\Program Files\NCBI\igblast-1.21.0\database\human_gl_V" `
-  --germline-db-d "C:\Program Files\NCBI\igblast-1.21.0\database\human_gl_D" `
-  --germline-db-j "C:\Program Files\NCBI\igblast-1.21.0\database\human_gl_J" `
-  --auxiliary-data "C:\Program Files\NCBI\igblast-1.21.0\optional_file\human_gl.aux" `
+  --germline-db-v "C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt\db\IMGT_IGHV.imgt" `
+  --germline-db-d "C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt\db\IMGT_IGHD.imgt" `
+  --germline-db-j "C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt\db\IMGT_IGHJ.imgt" `
+  --auxiliary-data "C:\Users\Yohei Funakoshi\Desktop\IgBlast_refdata_edit_imgt\optional_file\human_gl.aux" `
   --organism human `
   --domain-system imgt `
   --num-threads 4

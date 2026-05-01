@@ -94,7 +94,7 @@ def _db_prefix_to_windows_short_path(prefix: str) -> str:
         ".psi",
         ".psq",
     )
-    if any(path.with_suffix(suffix).exists() for suffix in db_suffixes):
+    if any(Path(str(path) + suffix).exists() for suffix in db_suffixes):
         return str(Path(_windows_short_path(path.parent)) / path.name)
     return prefix
 
@@ -124,12 +124,42 @@ def _normalize_command_for_windows(command: list[str]) -> list[str]:
     return normalized
 
 
-def _igblast_runtime_context(igblastn: str) -> tuple[Path | None, dict[str, str]]:
+def _command_value(command: list[str], flag: str) -> str | None:
+    try:
+        index = command.index(flag)
+    except ValueError:
+        return None
+    if index + 1 >= len(command):
+        return None
+    return command[index + 1]
+
+
+def _refdata_root_from_command(command: list[str]) -> Path | None:
+    for flag in ("-germline_db_V", "-germline_db_D", "-germline_db_J"):
+        value = _command_value(command, flag)
+        if not value:
+            continue
+        prefix = Path(value)
+        parent = prefix.parent
+        if parent.name.lower() != "db":
+            continue
+        root = parent.parent
+        if (root / "internal_data").exists():
+            return root
+    return None
+
+
+def _igblast_runtime_context(command: list[str]) -> tuple[Path | None, dict[str, str]]:
     env = os.environ.copy()
     if os.name != "nt":
         return None, env
 
-    resolved = shutil.which(igblastn) or igblastn
+    refdata_root = _refdata_root_from_command(command)
+    if refdata_root is not None:
+        env["IGDATA"] = _windows_short_path(refdata_root)
+        return None, env
+
+    resolved = shutil.which(command[0]) or command[0]
     exe = Path(resolved)
     install_root = exe.parent.parent if exe.exists() else None
     internal_data = install_root / "internal_data" if install_root else None
@@ -150,7 +180,7 @@ def run_igblast(
     output_tsv = Path(output_tsv)
     output_tsv.parent.mkdir(parents=True, exist_ok=True)
     command = _normalize_command_for_windows(build_igblast_command(query_fasta, output_tsv, config))
-    cwd, env = _igblast_runtime_context(command[0])
+    cwd, env = _igblast_runtime_context(command)
     result = subprocess.run(command, capture_output=True, text=True, check=False, cwd=cwd, env=env)
     if result.returncode != 0:
         command_text = " ".join(command)
