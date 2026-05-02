@@ -5,8 +5,8 @@ import os
 import re
 
 
-PROJECT_FOLDER_NAME = "Paired Fastq IgBLAST AIRR tsv"
-RESULTS_FOLDER_NAME = "Results of Paired Fastq IgBLAST AIRR tsv"
+PROJECT_FOLDER_NAME = "RG Paired Fastq IgBLAST AIRR tsv"
+RESULTS_FOLDER_NAME = "Results of RG Paired Fastq IgBLAST AIRR tsv"
 
 _FASTQ_SUFFIXES = (".fastq.gz", ".fq.gz", ".fastq", ".fq")
 _INVALID_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*]+')

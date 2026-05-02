@@ -3,14 +3,15 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "paired-fastq-igblast-airr-tsv"
+name = "rg-paired-fastq-igblast-airr-tsv"
 version = "0.1.0"
-description = "Build AIRR TSV output from unmerged paired-end FASTQ reads using IgBLAST outfmt 19."
+description = "Build AIRR TSV output from untrimmed, unmerged RG paired-end FASTQ reads using IgBLAST outfmt 19."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
+rg-paired-fastq-igblast-airr-tsv = "airr_igblast_paired.cli:main"
 paired-fastq-igblast-airr-tsv = "airr_igblast_paired.cli:main"
 airr-igblast-paired = "airr_igblast_paired.cli:main"
 

@@ -25,8 +25,10 @@ def _has_blast_db(prefix: Path) -> bool:
 
 def _find_preferred_refdata_root() -> Path | None:
     desktop = Path.home() / "Desktop"
-    data_folder = desktop / "Paired Fastq IgBLAST AIRR tsv"
+    data_folder = desktop / "RG Paired Fastq IgBLAST AIRR tsv"
+    legacy_data_folder = desktop / "Paired Fastq IgBLAST AIRR tsv"
     local_refdata = data_folder / "refdata" / "IgBlast_refdata_edit_imgt"
+    legacy_local_refdata = legacy_data_folder / "refdata" / "IgBlast_refdata_edit_imgt"
     desktop_refdata = desktop / "IgBlast_refdata_edit_imgt"
     nested_refdata = desktop / "大切なフォルダ レパトア解析" / "IgBlast_refdata_edit_imgt"
 
@@ -40,6 +42,7 @@ def _find_preferred_refdata_root() -> Path | None:
 
     candidates = [
         local_refdata,
+        legacy_local_refdata,
         desktop_refdata,
         nested_refdata,
     ]
@@ -454,7 +457,7 @@ class App(ttk.Frame):
 
 def main() -> None:
     root = tk.Tk()
-    root.title("Paired Fastq IgBLAST AIRR tsv")
+    root.title("RG Paired Fastq IgBLAST AIRR tsv")
     root.geometry("900x760")
     App(root)
     root.mainloop()
