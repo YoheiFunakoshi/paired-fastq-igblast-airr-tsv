@@ -49,7 +49,7 @@ KKF103に関するFASTQ、RG社作成Excel、ChatGPTによる確認Word、比較
 - `<sample>.R1.airr.tsv`: 生AIRR TSVからR1行だけを抜き出したAIRR TSVです。
 - `<sample>.R2.airr.tsv`: 生AIRR TSVからR2行だけを抜き出したAIRR TSVです。
 - `<sample>.integrated.tsv`: R1/R2をread pair単位で並べ、暫定final値を付けた統合TSVです。これはAIRR標準そのものではなく、共同解析で確認しやすくするためのサマリーです。
-- `<sample>.integrated_counts.tsv`: `final_v_call`、`final_j_call`、`final_junction_aa` ごとのread pair数を集計したTSVです。解析やグラフ作成ではこちらを使うと便利です。
+- `<sample>.integrated_counts.tsv`: `final_v_call`、`final_d_call`、`final_j_call`、`final_junction_aa` ごとのread pair数を集計したTSVです。解析やグラフ作成ではこちらを使うと便利です。
 
 統合TSVでは、R1/R2の元データを消さず、`r1_*`、`r2_*`、`final_*`、`*_source`、`*_decision_reason` の列で判断過程を残します。
 
@@ -67,14 +67,21 @@ KKF103に関するFASTQ、RG社作成Excel、ChatGPTによる確認Word、比較
 `integrated_counts.tsv` は、統合TSVを集計した表です。主な列は次の通りです。
 
 - `final_v_call`: 暫定採用したV遺伝子コール
+- `final_d_call`: 暫定採用したD遺伝子コール
 - `final_j_call`: 暫定採用したJ遺伝子コール
 - `final_junction_aa`: 暫定採用したCDR3アミノ酸配列
-- `read_pair_count`: 同じ `final_v_call` + `final_j_call` + `final_junction_aa` を持つread pair数
+- `read_pair_count`: 同じ `final_v_call` + `final_d_call` + `final_j_call` + `final_junction_aa` を持つread pair数
 - `match_count`: R1/R2の `junction_aa` が一致したpair数
 - `conflict_count`: R1/R2の `junction_aa` が不一致だったpair数
 - `r1_only_count`: R1だけで `junction_aa` が得られたpair数
 - `r2_only_count`: R2だけで `junction_aa` が得られたpair数
+- `productive_true_count`: IgBLASTの `productive` がtrue相当だったread pair数
+- `productive_false_count`: IgBLASTの `productive` がfalse相当だったread pair数
 - `usable_for_qasas_count`: `final_v_call`、`final_j_call`、`final_junction_aa` がそろったpair数
+
+`final_v_call`、`final_d_call`、`final_j_call` はアリル付きのIgBLAST出力を残します。例えば `IGHV1-69*04` のような表記です。アリル番号を後から削って比較することはできますが、最初から削ると復元できないためです。
+
+`productive_true_count` と `productive_false_count` は、RG社Excelの `In frame` と完全に同じ判定ではありません。IgBLASTの `productive` 列を使った参考指標です。RG社納品Excelに近い見方をする場合、`productive_true_count` が多い候補を優先して見ると比較しやすくなります。
 
 つまり、`integrated.tsv` は追跡用、`integrated_counts.tsv` はリード数集計・解析用です。
 

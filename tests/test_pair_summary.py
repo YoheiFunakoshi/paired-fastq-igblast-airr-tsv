@@ -75,6 +75,7 @@ class PairSummaryTests(unittest.TestCase):
                 count_rows = list(csv.DictReader(handle, delimiter="\t"))
 
             self.assertEqual(count_rows[0]["final_v_call"], "IGHV1")
+            self.assertEqual(count_rows[0]["final_d_call"], "IGHD1")
             self.assertEqual(count_rows[0]["final_j_call"], "IGHJ4")
             self.assertEqual(count_rows[0]["final_junction_aa"], "CAR")
             self.assertEqual(count_rows[0]["read_pair_count"], "2")

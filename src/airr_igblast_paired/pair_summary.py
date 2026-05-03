@@ -302,6 +302,7 @@ def _write_integrated_tsv(path: Path, rows: list[dict[str, str]]) -> None:
 
 COUNTS_FIELDNAMES = [
     "final_v_call",
+    "final_d_call",
     "final_j_call",
     "final_junction_aa",
     "read_pair_count",
@@ -321,6 +322,7 @@ def _counts_rows(integrated_rows: list[dict[str, str]]) -> list[dict[str, str]]:
     for row in integrated_rows:
         key = (
             row.get("final_v_call", ""),
+            row.get("final_d_call", ""),
             row.get("final_j_call", ""),
             row.get("final_junction_aa", ""),
         )
@@ -328,8 +330,9 @@ def _counts_rows(integrated_rows: list[dict[str, str]]) -> list[dict[str, str]]:
             key,
             {
                 "final_v_call": key[0],
-                "final_j_call": key[1],
-                "final_junction_aa": key[2],
+                "final_d_call": key[1],
+                "final_j_call": key[2],
+                "final_junction_aa": key[3],
                 "read_pair_count": 0,
                 "match_count": 0,
                 "conflict_count": 0,
@@ -361,6 +364,7 @@ def _counts_rows(integrated_rows: list[dict[str, str]]) -> list[dict[str, str]]:
         key=lambda item: (
             -int(item["read_pair_count"]),
             str(item["final_v_call"]),
+            str(item["final_d_call"]),
             str(item["final_j_call"]),
             str(item["final_junction_aa"]),
         ),
