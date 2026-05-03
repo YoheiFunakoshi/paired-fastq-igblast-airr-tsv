@@ -111,6 +111,7 @@ class App(ttk.Frame):
             "domain_system": "imgt",
             "ig_seqtype": "Ig",
             "num_threads": 4,
+            "igblast_batch_size": 100000,
             "read_selection": "both",
             "r1_orientation": "forward",
             "r2_orientation": "reverse-complement",
@@ -159,6 +160,7 @@ class App(ttk.Frame):
         row = self._add_entry_row(row, "Domain system", "domain_system")
         row = self._add_entry_row(row, "Seq type", "ig_seqtype")
         row = self._add_spin_row(row, "Threads", "num_threads", 1, 128)
+        row = self._add_spin_row(row, "IgBLAST batch size", "igblast_batch_size", 0, 1000000)
 
         separator = ttk.Separator(self)
         separator.grid(row=row, column=0, columnspan=3, sticky="ew", pady=8)
@@ -419,6 +421,7 @@ class App(ttk.Frame):
                 max_n_rate=float(self.vars["max_n_rate"].get()),
                 query_name_template=self.vars["query_name_template"].get(),
                 strict_ids=bool(self.vars["strict_ids"].get()),
+                igblast_batch_size=int(self.vars["igblast_batch_size"].get()),
                 work_dir=default_work_dir(),
             )
         except Exception as exc:

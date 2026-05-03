@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import ctypes
+from collections.abc import Iterator
 
 
 @dataclass(frozen=True)
@@ -201,3 +202,87 @@ def run_igblast(
         message = result.stderr.strip() or result.stdout.strip() or "IgBLAST failed without output"
         raise RuntimeError(f"IgBLAST failed with exit code {result.returncode}\n{command_text}\n{message}")
     return command
+
+
+def _read_fasta_records(path: str | Path) -> Iterator[list[str]]:
+    record: list[str] = []
+    with Path(path).open("rt", encoding="utf-8", newline="") as handle:
+        for line in handle:
+            if line.startswith(">") and record:
+                yield record
+                record = []
+            record.append(line)
+    if record:
+        yield record
+
+
+def _write_fasta_batch(path: Path, records: list[list[str]]) -> None:
+    with path.open("wt", encoding="utf-8", newline="\n") as handle:
+        for record in records:
+            handle.writelines(record)
+
+
+def _append_airr_tsv_batch(final_tsv: Path, batch_tsv: Path, *, wrote_header: bool) -> bool:
+    with batch_tsv.open("rt", encoding="utf-8", newline="") as source, final_tsv.open(
+        "at" if wrote_header else "wt",
+        encoding="utf-8",
+        newline="",
+    ) as target:
+        for line_number, line in enumerate(source):
+            if wrote_header and line_number == 0 and line.startswith("sequence_id\t"):
+                continue
+            target.write(line)
+            if line_number == 0 and line.startswith("sequence_id\t"):
+                wrote_header = True
+    return wrote_header
+
+
+def run_igblast_batched(
+    query_fasta: str | Path,
+    output_tsv: str | Path,
+    config: IgBlastConfig,
+    *,
+    batch_size: int,
+) -> list[str]:
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than 0")
+
+    query_fasta = Path(query_fasta)
+    output_tsv = Path(output_tsv)
+    output_tsv.parent.mkdir(parents=True, exist_ok=True)
+    output_tsv.unlink(missing_ok=True)
+
+    commands: list[list[str]] = []
+    records: list[list[str]] = []
+    batch_index = 0
+    wrote_header = False
+
+    def flush_batch() -> None:
+        nonlocal batch_index, wrote_header, records
+        if not records:
+            return
+        batch_index += 1
+        batch_query = output_tsv.parent / f"{output_tsv.stem}.batch{batch_index:04d}.queries.fasta"
+        batch_output = output_tsv.parent / f"{output_tsv.stem}.batch{batch_index:04d}.airr.tsv"
+        try:
+            _write_fasta_batch(batch_query, records)
+            commands.append(run_igblast(batch_query, batch_output, config))
+            wrote_header = _append_airr_tsv_batch(output_tsv, batch_output, wrote_header=wrote_header)
+        finally:
+            batch_query.unlink(missing_ok=True)
+            batch_output.unlink(missing_ok=True)
+            records = []
+
+    for record in _read_fasta_records(query_fasta):
+        records.append(record)
+        if len(records) >= batch_size:
+            flush_batch()
+    flush_batch()
+
+    if not commands:
+        output_tsv.write_text("", encoding="utf-8")
+        return []
+
+    first_command = list(commands[0])
+    first_command.extend(["# batches", str(len(commands)), "# batch_size", str(batch_size)])
+    return first_command

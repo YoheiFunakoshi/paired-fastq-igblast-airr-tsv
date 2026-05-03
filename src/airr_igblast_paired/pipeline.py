@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from contextlib import contextmanager
+import ctypes
 import os
 import shutil
 import tempfile
 import uuid
 
-from .igblast import IgBlastConfig, run_igblast
+from .igblast import IgBlastConfig, run_igblast, run_igblast_batched
 from .pair_summary import PairSummaryStats, split_and_integrate_airr_tsv
 from .prepare import (
     PrepareStats,
@@ -50,6 +52,33 @@ def default_work_dir() -> Path:
     return Path(tempfile.gettempdir()) / "PairedFastqIgblastAirrTsv" / "work"
 
 
+@contextmanager
+def keep_windows_awake():
+    if os.name != "nt":
+        yield
+        return
+
+    es_continuous = 0x80000000
+    es_system_required = 0x00000001
+    es_awaymode_required = 0x00000040
+    ctypes.windll.kernel32.SetThreadExecutionState(es_continuous | es_system_required | es_awaymode_required)
+    try:
+        yield
+    finally:
+        ctypes.windll.kernel32.SetThreadExecutionState(es_continuous)
+
+
+def _run_igblast_maybe_batched(
+    query_fasta: Path,
+    output_tsv: Path,
+    igblast_config: IgBlastConfig,
+    igblast_batch_size: int | None,
+) -> list[str]:
+    if igblast_batch_size and igblast_batch_size > 0:
+        return run_igblast_batched(query_fasta, output_tsv, igblast_config, batch_size=igblast_batch_size)
+    return run_igblast(query_fasta, output_tsv, igblast_config)
+
+
 def run_paired_igblast(
     *,
     r1_path: str | Path,
@@ -64,6 +93,7 @@ def run_paired_igblast(
     min_length: int = 0,
     max_n_rate: float = 1.0,
     strict_ids: bool = True,
+    igblast_batch_size: int | None = None,
     work_dir: str | Path | None = None,
 ) -> PipelineResult:
     if not str(r1_path).strip():
@@ -92,23 +122,29 @@ def run_paired_igblast(
         scratch_output = scratch_dir / output_tsv.name
         success = False
         try:
-            stats = prepare_paired_fastq_to_fasta(
-                r1_path,
-                r2_path,
-                scratch_query,
-                read_selection=read_selection,
-                r1_transform=r1_transform,
-                r2_transform=r2_transform,
-                query_name_template=query_name_template,
-                min_length=min_length,
-                max_n_rate=max_n_rate,
-                strict_ids=strict_ids,
-            )
-            command = run_igblast(scratch_query, scratch_output, igblast_config)
-            shutil.copy2(scratch_output, output_tsv)
-            r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
-            if final_query_fasta:
-                shutil.copy2(scratch_query, final_query_fasta)
+            with keep_windows_awake():
+                stats = prepare_paired_fastq_to_fasta(
+                    r1_path,
+                    r2_path,
+                    scratch_query,
+                    read_selection=read_selection,
+                    r1_transform=r1_transform,
+                    r2_transform=r2_transform,
+                    query_name_template=query_name_template,
+                    min_length=min_length,
+                    max_n_rate=max_n_rate,
+                    strict_ids=strict_ids,
+                )
+                command = _run_igblast_maybe_batched(
+                    scratch_query,
+                    scratch_output,
+                    igblast_config,
+                    igblast_batch_size,
+                )
+                shutil.copy2(scratch_output, output_tsv)
+                r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
+                if final_query_fasta:
+                    shutil.copy2(scratch_query, final_query_fasta)
             success = True
             return PipelineResult(
                 stats,
@@ -127,20 +163,26 @@ def run_paired_igblast(
                 shutil.rmtree(scratch_dir, ignore_errors=True)
 
     if final_query_fasta:
-        stats = prepare_paired_fastq_to_fasta(
-            r1_path,
-            r2_path,
-            final_query_fasta,
-            read_selection=read_selection,
-            r1_transform=r1_transform,
-            r2_transform=r2_transform,
-            query_name_template=query_name_template,
-            min_length=min_length,
-            max_n_rate=max_n_rate,
-            strict_ids=strict_ids,
-        )
-        command = run_igblast(final_query_fasta, output_tsv, igblast_config)
-        r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
+        with keep_windows_awake():
+            stats = prepare_paired_fastq_to_fasta(
+                r1_path,
+                r2_path,
+                final_query_fasta,
+                read_selection=read_selection,
+                r1_transform=r1_transform,
+                r2_transform=r2_transform,
+                query_name_template=query_name_template,
+                min_length=min_length,
+                max_n_rate=max_n_rate,
+                strict_ids=strict_ids,
+            )
+            command = _run_igblast_maybe_batched(
+                final_query_fasta,
+                output_tsv,
+                igblast_config,
+                igblast_batch_size,
+            )
+            r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
         return PipelineResult(
             stats,
             command,
@@ -162,20 +204,26 @@ def run_paired_igblast(
     os.close(fd)
     temp_fasta = Path(temp_name)
     try:
-        stats = prepare_paired_fastq_to_fasta(
-            r1_path,
-            r2_path,
-            temp_fasta,
-            read_selection=read_selection,
-            r1_transform=r1_transform,
-            r2_transform=r2_transform,
-            query_name_template=query_name_template,
-            min_length=min_length,
-            max_n_rate=max_n_rate,
-            strict_ids=strict_ids,
-        )
-        command = run_igblast(temp_fasta, output_tsv, igblast_config)
-        r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
+        with keep_windows_awake():
+            stats = prepare_paired_fastq_to_fasta(
+                r1_path,
+                r2_path,
+                temp_fasta,
+                read_selection=read_selection,
+                r1_transform=r1_transform,
+                r2_transform=r2_transform,
+                query_name_template=query_name_template,
+                min_length=min_length,
+                max_n_rate=max_n_rate,
+                strict_ids=strict_ids,
+            )
+            command = _run_igblast_maybe_batched(
+                temp_fasta,
+                output_tsv,
+                igblast_config,
+                igblast_batch_size,
+            )
+            r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
         return PipelineResult(
             stats,
             command,

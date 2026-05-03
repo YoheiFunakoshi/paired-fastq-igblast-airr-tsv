@@ -64,6 +64,12 @@ def _add_igblast_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--auxiliary-data", help="IgBLAST auxiliary data file, for example human_gl.aux.")
     parser.add_argument("--num-threads", type=int, default=4, help="Number of IgBLAST threads.")
     parser.add_argument(
+        "--igblast-batch-size",
+        type=int,
+        default=100000,
+        help="Run IgBLAST in batches of this many FASTA query records. Use 0 to disable batching.",
+    )
+    parser.add_argument(
         "--extra-igblast-arg",
         action="append",
         help="Additional igblastn argument. Repeat once per token.",
@@ -138,6 +144,7 @@ def _run(args: argparse.Namespace) -> int:
         min_length=args.min_length,
         max_n_rate=args.max_n_rate,
         strict_ids=not args.allow_id_mismatch,
+        igblast_batch_size=args.igblast_batch_size,
         work_dir=args.work_dir,
     )
     _print_stats(result.stats)

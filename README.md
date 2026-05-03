@@ -24,6 +24,7 @@ RGデータの前提と、この解析システムの方針は次の通りです
 - CLI: あり
 - 確認済み IgBLAST: `igblastn 1.21.0`
 - GUIの標準スレッド数: `4`
+- GUIの標準IgBLAST batch size: `100000`
 
 このリポジトリには IgBLAST 本体、IgBLAST germline database、大きな FASTQ データ、RG社Excelなどの企業解析結果は含めません。利用者のPCに IgBLAST と database を用意してから使います。
 
@@ -420,6 +421,15 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
   - 成功すると、出力TSV、R1 TSV、R2 TSV、統合TSV、集計TSV、集計Excelの場所と処理したread数が表示されます。
   - GUIではIgBLASTの作業ファイルをPC内のローカル一時フォルダで作り、完了後にResultsフォルダへコピーします。Desktop/OneDrive配下へ巨大TSVを長時間直接書き続けることを避けるためです。
 
+### IgBLAST batch size
+
+- `IgBLAST batch size`
+  - IgBLASTへ渡すFASTA queryを指定数ごとに分割して実行するための設定です。
+  - 標準値は `100000` です。
+  - 大きなFASTQでは、一度に全queryをIgBLASTへ渡すとWindows上で進行が止まったように見えることがあります。分割実行により、各batchのIgBLASTを順番に完了させ、最後にAIRR TSVを1つに連結します。
+  - `0` にすると分割せず、従来通り1回のIgBLASTで実行します。
+  - 通常は `100000` のまま使ってください。
+
 ### ログ表示欄
 
 GUI 下部のログ欄には、処理開始、完了、エラー内容が表示されます。エラーが出た場合は、まず FASTQ のパス、IgBLAST のパス、database prefix、aux file の指定を確認してください。
@@ -440,6 +450,7 @@ rg-paired-fastq-igblast-airr-tsv run `
   --organism human `
   --domain-system imgt `
   --num-threads 4 `
+  --igblast-batch-size 100000 `
   --work-dir "$env:LOCALAPPDATA\PairedFastqIgblastAirrTsv\work"
 ```
 
