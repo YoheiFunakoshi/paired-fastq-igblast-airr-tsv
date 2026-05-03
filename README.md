@@ -33,6 +33,35 @@ RGデータの前提と、この解析システムの方針は次の通りです
 
 KKF103に関するFASTQ、RG社作成Excel、ChatGPTによる確認Word、比較用FASTA、AIRR TSVなどの実データはGitHubには置きません。共同研究で必要な場合は、船越がローカルに保有しているデータを別途共有します。
 
+## 出力ファイルと統合方針
+
+このツールの基本コンセプトは、正確さを厳しく追い込むよりも、まず情報を落とさずに残すことです。R1とR2はマージせず、それぞれを独立したIgBLAST queryとして解析します。解析後には、追跡しやすいように次のTSVを同じResultsフォルダに作成します。
+
+```text
+<sample>.airr.tsv
+<sample>.R1.airr.tsv
+<sample>.R2.airr.tsv
+<sample>.integrated.tsv
+```
+
+- `<sample>.airr.tsv`: IgBLAST `-outfmt 19` の生AIRR TSVです。R1とR2の行が両方入ります。
+- `<sample>.R1.airr.tsv`: 生AIRR TSVからR1行だけを抜き出したAIRR TSVです。
+- `<sample>.R2.airr.tsv`: 生AIRR TSVからR2行だけを抜き出したAIRR TSVです。
+- `<sample>.integrated.tsv`: R1/R2をread pair単位で並べ、暫定final値を付けた統合TSVです。これはAIRR標準そのものではなく、共同解析で確認しやすくするためのサマリーです。
+
+統合TSVでは、R1/R2の元データを消さず、`r1_*`、`r2_*`、`final_*`、`*_source`、`*_decision_reason` の列で判断過程を残します。
+
+暫定ルール:
+
+- `junction_aa` がR1/R2で一致する場合はその値を採用します。
+- 片方だけに `junction_aa` がある場合は、その値を採用します。
+- `junction_aa` が不一致の場合も落としません。長い方を `final_junction_aa` とし、同じ長さならR2を優先します。
+- `v_call` はR2を優先します。R2はV領域側から読むためです。
+- `j_call`、`d_call`、`productive`、`junction` は、原則として `final_junction_aa` に採用したread側を優先し、空欄の場合はもう一方を使います。
+- QASASなどで使いやすいよう、`final_v_call`、`final_j_call`、`final_junction_aa` がそろう場合に `usable_for_qasas=true` とします。
+
+この統合ルールは「落とさない」暫定版です。将来的に、conflictをより厳しく扱う正確性重視版を別に作る余地を残しています。
+
 ## IMGT参照データについて
 
 IgBLASTでAIRR TSVを作成するには、V/D/Jのgermline databaseが必要です。このプロジェクトでは、IMGTから取得したヒトIgHのIGHV/IGHD/IGHJ FASTAをIgBLAST用に整形し、`makeblastdb` で作成したBLAST DBを使う想定です。
@@ -237,9 +266,10 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
   - `Browse` ボタンでファイルを選びます。
 
 - `Output TSV`
-  - IgBLAST の AIRR TSV 出力先です。
+  - IgBLAST の生AIRR TSV出力先です。
   - R1/R2 FASTQ を選ぶと、標準では作業フォルダ内の `Results of RG Paired Fastq IgBLAST AIRR tsv` に自動設定されます。
   - ファイル名にはFASTQの共通サンプル名を使います。例: `KKF103hG_S57_L001_R1_001.fastq` と `KKF103hG_S57_L001_R2_001.fastq` から `KKF103hG_S57_L001.airr.tsv` を作ります。
+  - 実行後、同じフォルダに `KKF103hG_S57_L001.R1.airr.tsv`、`KKF103hG_S57_L001.R2.airr.tsv`、`KKF103hG_S57_L001.integrated.tsv` も自動作成します。
   - `Browse` ボタンで保存先を指定します。
 
 - `Keep query FASTA`
@@ -347,8 +377,9 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
 
 - `Run`
   - FASTQ から中間 FASTA を作成し、IgBLAST を実行して AIRR TSV を作成します。
+  - IgBLAST完了後、生AIRR TSVからR1 TSV、R2 TSV、統合TSVも作成します。
   - 実行中は処理が完了するまで待ちます。
-  - 成功すると、出力 TSV の場所と処理した read 数が表示されます。
+  - 成功すると、出力TSV、R1 TSV、R2 TSV、統合TSVの場所と処理したread数が表示されます。
   - GUIではIgBLASTの作業ファイルをPC内のローカル一時フォルダで作り、完了後にResultsフォルダへコピーします。Desktop/OneDrive配下へ巨大TSVを長時間直接書き続けることを避けるためです。
 
 ### ログ表示欄

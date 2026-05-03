@@ -27,7 +27,12 @@ class PipelineTests(unittest.TestCase):
             def fake_run_igblast(query_fasta: Path, output_tsv: Path, _: IgBlastConfig) -> list[str]:
                 self.assertTrue(str(query_fasta).startswith(str(work)))
                 self.assertTrue(str(output_tsv).startswith(str(work)))
-                output_tsv.write_text("sequence_id\tsequence\nread1|R1\tAACCGG\n", encoding="utf-8")
+                output_tsv.write_text(
+                    "sequence_id\tsequence\tv_call\tj_call\tjunction_aa\n"
+                    "read1|R1\tAACCGG\tIGHV1\tIGHJ4\tCAR\n"
+                    "read1|R2\tAACCTT\tIGHV1\tIGHJ4\tCAR\n",
+                    encoding="utf-8",
+                )
                 return ["igblastn", "-query", str(query_fasta), "-out", str(output_tsv)]
 
             with patch("airr_igblast_paired.pipeline.run_igblast", side_effect=fake_run_igblast):
@@ -44,6 +49,10 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(result.query_fasta, query)
             self.assertTrue(out.exists())
             self.assertTrue(query.exists())
+            self.assertTrue((root / "results" / "sample.R1.airr.tsv").exists())
+            self.assertTrue((root / "results" / "sample.R2.airr.tsv").exists())
+            self.assertTrue((root / "results" / "sample.integrated.tsv").exists())
+            self.assertEqual(result.pair_summary_stats.total_pairs, 1)
             self.assertIn(">read1|R2\nAACCTT\n", query.read_text(encoding="utf-8"))
         finally:
             shutil.rmtree(root, ignore_errors=True)

@@ -426,12 +426,24 @@ class App(ttk.Frame):
             return
 
         stats = result.stats
+        pair_stats = result.pair_summary_stats
         message = (
             f"Done: {Path(result.output_tsv)}\n"
             f"pairs={stats.total_pairs}, records={stats.records_written}, "
             f"R1={stats.r1_written}, R2={stats.r2_written}, "
             f"skipped_short={stats.skipped_too_short}, skipped_N={stats.skipped_n_rate}"
         )
+        if result.r1_tsv and result.r2_tsv and result.integrated_tsv:
+            message += (
+                f"\nR1 TSV: {result.r1_tsv}"
+                f"\nR2 TSV: {result.r2_tsv}"
+                f"\nIntegrated TSV: {result.integrated_tsv}"
+            )
+        if pair_stats:
+            message += (
+                f"\nintegrated_pairs={pair_stats.total_pairs}, "
+                f"junction_aa_conflicts={pair_stats.junction_aa_conflicts}"
+            )
         self.messages.put(("done", message))
 
     def _poll_messages(self) -> None:

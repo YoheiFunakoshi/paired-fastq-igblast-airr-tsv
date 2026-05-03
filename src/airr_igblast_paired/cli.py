@@ -143,6 +143,21 @@ def _run(args: argparse.Namespace) -> int:
     _print_stats(result.stats)
     print("ran: " + " ".join(result.command), file=sys.stderr)
     print(f"wrote {result.output_tsv}", file=sys.stderr)
+    if result.r1_tsv:
+        print(f"wrote {result.r1_tsv}", file=sys.stderr)
+    if result.r2_tsv:
+        print(f"wrote {result.r2_tsv}", file=sys.stderr)
+    if result.integrated_tsv:
+        print(f"wrote {result.integrated_tsv}", file=sys.stderr)
+    if result.pair_summary_stats:
+        print(
+            "pair summary: "
+            f"pairs={result.pair_summary_stats.total_pairs}, "
+            f"r1_rows={result.pair_summary_stats.r1_rows}, "
+            f"r2_rows={result.pair_summary_stats.r2_rows}, "
+            f"junction_aa_conflicts={result.pair_summary_stats.junction_aa_conflicts}",
+            file=sys.stderr,
+        )
     return 0
 
 
