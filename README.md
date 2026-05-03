@@ -92,9 +92,13 @@ KKF103に関するFASTQ、RG社作成Excel、ChatGPTによる確認Word、比較
 
 `integrated.tsv` には `final_v_call`、`final_d_call`、`final_j_call` としてアリル付きのIgBLAST出力を残します。例えば `IGHV1-69*04` のような表記です。一方、`integrated_counts.tsv` ではRG社Excelや他社解析と比較しやすいよう、アリルを外した候補セットで集計します。D遺伝子はコールされないことが多く不安定なため、ユニーク判定には使いません。
 
+そのため、V候補セット、J候補セット、`final_junction_aa` が同じであれば、D callがあるpairとD callがないpairは `integrated_counts.tsv` / `.xlsx` では同じユニークリードとして1行に集計します。D callの有無や内容を確認したい場合は、追跡用の `integrated.tsv` を確認します。
+
 `productive_true_count` は、RG社Excelの `In frame` と完全に同じ判定ではありません。IgBLASTの `productive` 列を使った参考指標です。RG社納品Excelに近い見方をする場合、`include_in_counts=true` の候補を主に確認します。
 
 つまり、`integrated.tsv` は追跡用、`integrated_counts.tsv` と `integrated_counts.xlsx` はリード数集計・解析用です。
+
+統合ルールを決めるまでの議論、採用した理由、今後の検討点は [`docs/RG_nonmerge_integration_discussion_summary_20260503.md`](docs/RG_nonmerge_integration_discussion_summary_20260503.md) にまとめています。
 
 ## IMGT参照データについて
 
