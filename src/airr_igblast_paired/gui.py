@@ -439,10 +439,13 @@ class App(ttk.Frame):
                 f"\nR2 TSV: {result.r2_tsv}"
                 f"\nIntegrated TSV: {result.integrated_tsv}"
             )
+        if result.counts_tsv:
+            message += f"\nCounts TSV: {result.counts_tsv}"
         if pair_stats:
             message += (
                 f"\nintegrated_pairs={pair_stats.total_pairs}, "
-                f"junction_aa_conflicts={pair_stats.junction_aa_conflicts}"
+                f"junction_aa_conflicts={pair_stats.junction_aa_conflicts}, "
+                f"unique_final_clonotypes={pair_stats.unique_final_clonotypes}"
             )
         self.messages.put(("done", message))
 

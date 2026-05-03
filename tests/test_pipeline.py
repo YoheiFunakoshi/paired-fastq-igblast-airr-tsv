@@ -52,7 +52,9 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue((root / "results" / "sample.R1.airr.tsv").exists())
             self.assertTrue((root / "results" / "sample.R2.airr.tsv").exists())
             self.assertTrue((root / "results" / "sample.integrated.tsv").exists())
+            self.assertTrue((root / "results" / "sample.integrated_counts.tsv").exists())
             self.assertEqual(result.pair_summary_stats.total_pairs, 1)
+            self.assertEqual(result.pair_summary_stats.unique_final_clonotypes, 1)
             self.assertIn(">read1|R2\nAACCTT\n", query.read_text(encoding="utf-8"))
         finally:
             shutil.rmtree(root, ignore_errors=True)

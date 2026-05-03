@@ -14,6 +14,7 @@ class DerivedTsvPaths:
     r1_tsv: Path
     r2_tsv: Path
     integrated_tsv: Path
+    counts_tsv: Path
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class PairSummaryStats:
     r1_rows: int
     r2_rows: int
     junction_aa_conflicts: int
+    unique_final_clonotypes: int
 
 
 def default_derived_tsv_paths(output_tsv: str | Path) -> DerivedTsvPaths:
@@ -39,6 +41,7 @@ def default_derived_tsv_paths(output_tsv: str | Path) -> DerivedTsvPaths:
         r1_tsv=output.with_name(f"{sample}.R1.airr.tsv"),
         r2_tsv=output.with_name(f"{sample}.R2.airr.tsv"),
         integrated_tsv=output.with_name(f"{sample}.integrated.tsv"),
+        counts_tsv=output.with_name(f"{sample}.integrated_counts.tsv"),
     )
 
 
@@ -48,7 +51,7 @@ def split_and_integrate_airr_tsv(
 ) -> tuple[DerivedTsvPaths, PairSummaryStats]:
     input_path = Path(input_tsv)
     derived = paths or default_derived_tsv_paths(input_path)
-    for path in (derived.r1_tsv, derived.r2_tsv, derived.integrated_tsv):
+    for path in (derived.r1_tsv, derived.r2_tsv, derived.integrated_tsv, derived.counts_tsv):
         path.parent.mkdir(parents=True, exist_ok=True)
 
     pairs: dict[str, dict[ReadLabel, dict[str, str]]] = {}
@@ -61,7 +64,8 @@ def split_and_integrate_airr_tsv(
             _write_empty_tsv(derived.r1_tsv)
             _write_empty_tsv(derived.r2_tsv)
             _write_integrated_tsv(derived.integrated_tsv, [])
-            return derived, PairSummaryStats(0, 0, 0, 0)
+            _write_counts_tsv(derived.counts_tsv, [])
+            return derived, PairSummaryStats(0, 0, 0, 0, 0)
 
         with (
             derived.r1_tsv.open("wt", encoding="utf-8", newline="") as r1_handle,
@@ -86,8 +90,10 @@ def split_and_integrate_airr_tsv(
 
     integrated_rows = [_integrated_row(pair_id, pair_rows) for pair_id, pair_rows in sorted(pairs.items())]
     _write_integrated_tsv(derived.integrated_tsv, integrated_rows)
+    counts_rows = _counts_rows(integrated_rows)
+    _write_counts_tsv(derived.counts_tsv, counts_rows)
     conflicts = sum(1 for row in integrated_rows if row["junction_aa_status"] == "conflict")
-    return derived, PairSummaryStats(len(integrated_rows), r1_rows, r2_rows, conflicts)
+    return derived, PairSummaryStats(len(integrated_rows), r1_rows, r2_rows, conflicts, len(counts_rows))
 
 
 def pair_id_and_read_label(sequence_id: str) -> tuple[str, ReadLabel | None]:
@@ -290,5 +296,80 @@ INTEGRATED_FIELDNAMES = [
 def _write_integrated_tsv(path: Path, rows: list[dict[str, str]]) -> None:
     with path.open("wt", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=INTEGRATED_FIELDNAMES, delimiter="\t", lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+COUNTS_FIELDNAMES = [
+    "final_v_call",
+    "final_j_call",
+    "final_junction_aa",
+    "read_pair_count",
+    "match_count",
+    "conflict_count",
+    "r1_only_count",
+    "r2_only_count",
+    "none_count",
+    "productive_true_count",
+    "productive_false_count",
+    "usable_for_qasas_count",
+]
+
+
+def _counts_rows(integrated_rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    counts: dict[tuple[str, str, str], dict[str, int | str]] = {}
+    for row in integrated_rows:
+        key = (
+            row.get("final_v_call", ""),
+            row.get("final_j_call", ""),
+            row.get("final_junction_aa", ""),
+        )
+        bucket = counts.setdefault(
+            key,
+            {
+                "final_v_call": key[0],
+                "final_j_call": key[1],
+                "final_junction_aa": key[2],
+                "read_pair_count": 0,
+                "match_count": 0,
+                "conflict_count": 0,
+                "r1_only_count": 0,
+                "r2_only_count": 0,
+                "none_count": 0,
+                "productive_true_count": 0,
+                "productive_false_count": 0,
+                "usable_for_qasas_count": 0,
+            },
+        )
+        bucket["read_pair_count"] = int(bucket["read_pair_count"]) + 1
+        status_key = row.get("junction_aa_status", "none")
+        if status_key not in {"match", "conflict", "r1_only", "r2_only", "none"}:
+            status_key = "none"
+        bucket[f"{status_key}_count"] = int(bucket[f"{status_key}_count"]) + 1
+
+        productive = row.get("final_productive", "").strip().lower()
+        if productive in {"t", "true", "yes", "1"}:
+            bucket["productive_true_count"] = int(bucket["productive_true_count"]) + 1
+        elif productive in {"f", "false", "no", "0"}:
+            bucket["productive_false_count"] = int(bucket["productive_false_count"]) + 1
+
+        if row.get("usable_for_qasas", "").strip().lower() == "true":
+            bucket["usable_for_qasas_count"] = int(bucket["usable_for_qasas_count"]) + 1
+
+    sorted_rows = sorted(
+        counts.values(),
+        key=lambda item: (
+            -int(item["read_pair_count"]),
+            str(item["final_v_call"]),
+            str(item["final_j_call"]),
+            str(item["final_junction_aa"]),
+        ),
+    )
+    return [{field: str(row[field]) for field in COUNTS_FIELDNAMES} for row in sorted_rows]
+
+
+def _write_counts_tsv(path: Path, rows: list[dict[str, str]]) -> None:
+    with path.open("wt", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=COUNTS_FIELDNAMES, delimiter="\t", lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
