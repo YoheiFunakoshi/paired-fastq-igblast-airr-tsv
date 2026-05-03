@@ -34,6 +34,12 @@ RGデータの前提と、この解析システムの方針は次の通りです
 
 KKF103に関するFASTQ、RG社作成Excel、ChatGPTによる確認Word、比較用FASTA、AIRR TSVなどの実データはGitHubには置きません。共同研究で必要な場合は、船越がローカルに保有しているデータを別途共有します。
 
+RG社Excelとの比較では、総リード数は一致し、Vコール、Jコール、`junctionAA` / `final_junction_aa` で定義したユニークリード数も概ね近い結果でした。そのため、この版ではユニークリードを「アリルなしV候補セット + アリルなしJ候補セット + `final_junction_aa`」で定義し、これ以上複雑化せずいったん完成版とします。
+
+RG社Excelとの差分として、RG社ExcelはIGHG1、IGHG2、IGHG3などのC領域別に行を分ける場合があります。一方、このツールの `integrated_counts.tsv` / `.xlsx` はC領域をユニーク判定に入れません。C領域別解析が必要な場合は、将来の別バージョンで検討します。
+
+比較結果と最終判断は [`docs/RG_company_excel_comparison_note_20260503.md`](docs/RG_company_excel_comparison_note_20260503.md) にまとめています。
+
 ## 出力ファイルと統合方針
 
 このツールの基本コンセプトは、正確さを厳しく追い込むよりも、まず情報を落とさずに残すことです。R1とR2はマージせず、それぞれを独立したIgBLAST queryとして解析します。解析後には、追跡しやすいように次のTSVを同じResultsフォルダに作成します。

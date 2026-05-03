@@ -3,6 +3,12 @@
 作成日: 2026-05-03  
 対象: RG社PCRシーケンス由来BCRレパトア解析データ用GUI / CLI
 
+## 最終注釈
+
+2026-05-03時点の最終判断として、RG社Excelとの比較では、総リード数が一致し、Vコール、Jコール、`junctionAA` / `final_junction_aa` で定義したユニークリード数も概ね近い結果でした。そのため、この版では「アリルなしV候補セット + アリルなしJ候補セット + `final_junction_aa`」をユニークリードの定義とし、これ以上複雑化せずいったん完成版とします。
+
+RG社Excelとの差分および完成判断は [`RG_company_excel_comparison_note_20260503.md`](RG_company_excel_comparison_note_20260503.md) に追記しました。
+
 ## 目的
 
 この文書は、RG社データ用の `RG Paired Fastq IgBLAST AIRR tsv` について、これまでの議論で決めた解析方針、採用した理由、将来の検討点をまとめるものです。
