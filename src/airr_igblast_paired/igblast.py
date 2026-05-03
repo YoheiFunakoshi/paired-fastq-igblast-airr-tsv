@@ -6,7 +6,7 @@ import os
 import shutil
 import subprocess
 import ctypes
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 
 @dataclass(frozen=True)
@@ -243,6 +243,7 @@ def run_igblast_batched(
     config: IgBlastConfig,
     *,
     batch_size: int,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> list[str]:
     if batch_size <= 0:
         raise ValueError("batch_size must be greater than 0")
@@ -264,10 +265,15 @@ def run_igblast_batched(
         batch_index += 1
         batch_query = output_tsv.parent / f"{output_tsv.stem}.batch{batch_index:04d}.queries.fasta"
         batch_output = output_tsv.parent / f"{output_tsv.stem}.batch{batch_index:04d}.airr.tsv"
+        query_count = len(records)
         try:
+            if progress_callback:
+                progress_callback(f"Starting IgBLAST batch {batch_index} ({query_count} queries)...")
             _write_fasta_batch(batch_query, records)
             commands.append(run_igblast(batch_query, batch_output, config))
             wrote_header = _append_airr_tsv_batch(output_tsv, batch_output, wrote_header=wrote_header)
+            if progress_callback:
+                progress_callback(f"Finished IgBLAST batch {batch_index}.")
         finally:
             batch_query.unlink(missing_ok=True)
             batch_output.unlink(missing_ok=True)

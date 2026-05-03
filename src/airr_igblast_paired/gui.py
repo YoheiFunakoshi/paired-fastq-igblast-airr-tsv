@@ -111,7 +111,7 @@ class App(ttk.Frame):
             "domain_system": "imgt",
             "ig_seqtype": "Ig",
             "num_threads": 4,
-            "igblast_batch_size": 100000,
+            "igblast_batch_size": 10000,
             "read_selection": "both",
             "r1_orientation": "forward",
             "r2_orientation": "reverse-complement",
@@ -422,6 +422,7 @@ class App(ttk.Frame):
                 query_name_template=self.vars["query_name_template"].get(),
                 strict_ids=bool(self.vars["strict_ids"].get()),
                 igblast_batch_size=int(self.vars["igblast_batch_size"].get()),
+                progress_callback=lambda message: self.messages.put(("log", message)),
                 work_dir=default_work_dir(),
             )
         except Exception as exc:
@@ -463,6 +464,8 @@ class App(ttk.Frame):
                     self._log("ERROR: " + message)
                     messagebox.showerror("AIRR IgBLAST", message)
                     self.run_button.configure(state="normal")
+                elif kind == "log":
+                    self._log(message)
                 elif kind == "done":
                     self._log(message)
                     messagebox.showinfo("AIRR IgBLAST", message)

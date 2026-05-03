@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from contextlib import contextmanager
+from collections.abc import Callable
 import ctypes
 import os
 import shutil
@@ -73,9 +74,18 @@ def _run_igblast_maybe_batched(
     output_tsv: Path,
     igblast_config: IgBlastConfig,
     igblast_batch_size: int | None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> list[str]:
     if igblast_batch_size and igblast_batch_size > 0:
-        return run_igblast_batched(query_fasta, output_tsv, igblast_config, batch_size=igblast_batch_size)
+        return run_igblast_batched(
+            query_fasta,
+            output_tsv,
+            igblast_config,
+            batch_size=igblast_batch_size,
+            progress_callback=progress_callback,
+        )
+    if progress_callback:
+        progress_callback("Starting IgBLAST without batching...")
     return run_igblast(query_fasta, output_tsv, igblast_config)
 
 
@@ -94,6 +104,7 @@ def run_paired_igblast(
     max_n_rate: float = 1.0,
     strict_ids: bool = True,
     igblast_batch_size: int | None = None,
+    progress_callback: Callable[[str], None] | None = None,
     work_dir: str | Path | None = None,
 ) -> PipelineResult:
     if not str(r1_path).strip():
@@ -123,6 +134,8 @@ def run_paired_igblast(
         success = False
         try:
             with keep_windows_awake():
+                if progress_callback:
+                    progress_callback("Preparing IgBLAST query FASTA...")
                 stats = prepare_paired_fastq_to_fasta(
                     r1_path,
                     r2_path,
@@ -140,8 +153,13 @@ def run_paired_igblast(
                     scratch_output,
                     igblast_config,
                     igblast_batch_size,
+                    progress_callback,
                 )
+                if progress_callback:
+                    progress_callback("Copying final AIRR TSV to Results folder...")
                 shutil.copy2(scratch_output, output_tsv)
+                if progress_callback:
+                    progress_callback("Creating R1/R2, integrated, and count outputs...")
                 r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
                 if final_query_fasta:
                     shutil.copy2(scratch_query, final_query_fasta)
@@ -164,6 +182,8 @@ def run_paired_igblast(
 
     if final_query_fasta:
         with keep_windows_awake():
+            if progress_callback:
+                progress_callback("Preparing IgBLAST query FASTA...")
             stats = prepare_paired_fastq_to_fasta(
                 r1_path,
                 r2_path,
@@ -181,7 +201,10 @@ def run_paired_igblast(
                 output_tsv,
                 igblast_config,
                 igblast_batch_size,
+                progress_callback,
             )
+            if progress_callback:
+                progress_callback("Creating R1/R2, integrated, and count outputs...")
             r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
         return PipelineResult(
             stats,
@@ -205,6 +228,8 @@ def run_paired_igblast(
     temp_fasta = Path(temp_name)
     try:
         with keep_windows_awake():
+            if progress_callback:
+                progress_callback("Preparing IgBLAST query FASTA...")
             stats = prepare_paired_fastq_to_fasta(
                 r1_path,
                 r2_path,
@@ -222,7 +247,10 @@ def run_paired_igblast(
                 output_tsv,
                 igblast_config,
                 igblast_batch_size,
+                progress_callback,
             )
+            if progress_callback:
+                progress_callback("Creating R1/R2, integrated, and count outputs...")
             r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
         return PipelineResult(
             stats,

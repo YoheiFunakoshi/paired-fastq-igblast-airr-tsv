@@ -16,7 +16,7 @@
 - R1はC領域側、R2はV領域側から読むpaired-end readとして扱います。
 - FASTQは標準設定ではトリムしません。
 - R1とR2はマージしません。
-- 大きなFASTAを一度にIgBLASTへ渡すと停止したように見えることがあるため、標準では `IgBLAST batch size = 100000` として分割実行します。
+- 大きなFASTAを一度にIgBLASTへ渡すと停止したように見えることがあるため、標準では `IgBLAST batch size = 10000` として分割実行します。
 - IgBLASTの参照データはIMGT由来のIGHV/IGHD/IGHJをIgBLAST用に整形したBLAST DBを使う想定です。
 - IgBLASTの確認済みバージョンは `igblastn 1.21.0` です。
 
