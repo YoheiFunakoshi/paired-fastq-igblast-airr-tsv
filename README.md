@@ -43,13 +43,15 @@ KKF103に関するFASTQ、RG社作成Excel、ChatGPTによる確認Word、比較
 <sample>.R2.airr.tsv
 <sample>.integrated.tsv
 <sample>.integrated_counts.tsv
+<sample>.integrated_counts.xlsx
 ```
 
 - `<sample>.airr.tsv`: IgBLAST `-outfmt 19` の生AIRR TSVです。R1とR2の行が両方入ります。
 - `<sample>.R1.airr.tsv`: 生AIRR TSVからR1行だけを抜き出したAIRR TSVです。
 - `<sample>.R2.airr.tsv`: 生AIRR TSVからR2行だけを抜き出したAIRR TSVです。
-- `<sample>.integrated.tsv`: R1/R2をread pair単位で並べ、暫定final値を付けた統合TSVです。これはAIRR標準そのものではなく、共同解析で確認しやすくするためのサマリーです。
-- `<sample>.integrated_counts.tsv`: `final_v_call`、`final_d_call`、`final_j_call`、`final_junction_aa` ごとのread pair数を集計したTSVです。解析やグラフ作成ではこちらを使うと便利です。
+- `<sample>.integrated.tsv`: R1/R2をread pair単位で並べ、暫定final値を付けた追跡用TSVです。これはAIRR標準そのものではなく、共同解析で確認しやすくするためのサマリーです。全pairを残し、最終集計に入れるかどうかを `include_in_counts` と `exclude_reason` に記録します。
+- `<sample>.integrated_counts.tsv`: `include_in_counts=true` のpairだけを、アリルなしV候補セット、アリルなしJ候補セット、`final_junction_aa` ごとに集計したTSVです。解析やグラフ作成ではこちらを使うと便利です。
+- `<sample>.integrated_counts.xlsx`: `integrated_counts.tsv` と同じ内容のExcelファイルです。共同研究者がExcelで確認しやすいように作成します。
 
 統合TSVでは、R1/R2の元データを消さず、`r1_*`、`r2_*`、`final_*`、`*_source`、`*_decision_reason` の列で判断過程を残します。
 
@@ -64,26 +66,35 @@ KKF103に関するFASTQ、RG社作成Excel、ChatGPTによる確認Word、比較
 
 この統合ルールは「落とさない」暫定版です。将来的に、conflictをより厳しく扱う正確性重視版を別に作る余地を残しています。
 
-`integrated_counts.tsv` は、統合TSVを集計した表です。主な列は次の通りです。
+`integrated.tsv` では全pairを残します。ただし、次の条件をすべて満たすものだけを `include_in_counts=true` とし、`integrated_counts.tsv` と `integrated_counts.xlsx` の集計対象にします。
 
-- `final_v_call`: 暫定採用したV遺伝子コール
-- `final_d_call`: 暫定採用したD遺伝子コール
-- `final_j_call`: 暫定採用したJ遺伝子コール
+- `productive` がtrue相当であること
+- V候補セットがあること
+- J候補セットがあること
+- `final_junction_aa` があること
+- `final_junction_aa` にstop `*` がないこと
+- `final_junction_aa` が `C` で始まること
+- `final_junction_aa` が `W` または `F` で終わること
+- `final_junction_aa` の長さが5-40 amino acidsであること
+
+`integrated_counts.tsv` は、統合TSVのうち `include_in_counts=true` の行だけを集計した表です。主な列は次の通りです。
+
+- `unique_v_gene_set`: アリルを外したV候補セット。例: `IGHV4-59,IGHV4-61`
+- `unique_j_gene_set`: アリルを外したJ候補セット。例: `IGHJ4`
 - `final_junction_aa`: 暫定採用したCDR3アミノ酸配列
-- `read_pair_count`: 同じ `final_v_call` + `final_d_call` + `final_j_call` + `final_junction_aa` を持つread pair数
+- `read_pair_count`: 同じ `unique_v_gene_set` + `unique_j_gene_set` + `final_junction_aa` を持つread pair数
 - `match_count`: R1/R2の `junction_aa` が一致したpair数
 - `conflict_count`: R1/R2の `junction_aa` が不一致だったpair数
 - `r1_only_count`: R1だけで `junction_aa` が得られたpair数
 - `r2_only_count`: R2だけで `junction_aa` が得られたpair数
 - `productive_true_count`: IgBLASTの `productive` がtrue相当だったread pair数
-- `productive_false_count`: IgBLASTの `productive` がfalse相当だったread pair数
-- `usable_for_qasas_count`: `final_v_call`、`final_j_call`、`final_junction_aa` がそろったpair数
+- `canonical_junction_aa_count`: canonical junctionAA条件を満たしたread pair数
 
-`final_v_call`、`final_d_call`、`final_j_call` はアリル付きのIgBLAST出力を残します。例えば `IGHV1-69*04` のような表記です。アリル番号を後から削って比較することはできますが、最初から削ると復元できないためです。
+`integrated.tsv` には `final_v_call`、`final_d_call`、`final_j_call` としてアリル付きのIgBLAST出力を残します。例えば `IGHV1-69*04` のような表記です。一方、`integrated_counts.tsv` ではRG社Excelや他社解析と比較しやすいよう、アリルを外した候補セットで集計します。D遺伝子はコールされないことが多く不安定なため、ユニーク判定には使いません。
 
-`productive_true_count` と `productive_false_count` は、RG社Excelの `In frame` と完全に同じ判定ではありません。IgBLASTの `productive` 列を使った参考指標です。RG社納品Excelに近い見方をする場合、`productive_true_count` が多い候補を優先して見ると比較しやすくなります。
+`productive_true_count` は、RG社Excelの `In frame` と完全に同じ判定ではありません。IgBLASTの `productive` 列を使った参考指標です。RG社納品Excelに近い見方をする場合、`include_in_counts=true` の候補を主に確認します。
 
-つまり、`integrated.tsv` は追跡用、`integrated_counts.tsv` はリード数集計・解析用です。
+つまり、`integrated.tsv` は追跡用、`integrated_counts.tsv` と `integrated_counts.xlsx` はリード数集計・解析用です。
 
 ## IMGT参照データについて
 
@@ -292,7 +303,7 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
   - IgBLAST の生AIRR TSV出力先です。
   - R1/R2 FASTQ を選ぶと、標準では作業フォルダ内の `Results of RG Paired Fastq IgBLAST AIRR tsv` に自動設定されます。
   - ファイル名にはFASTQの共通サンプル名を使います。例: `KKF103hG_S57_L001_R1_001.fastq` と `KKF103hG_S57_L001_R2_001.fastq` から `KKF103hG_S57_L001.airr.tsv` を作ります。
-  - 実行後、同じフォルダに `KKF103hG_S57_L001.R1.airr.tsv`、`KKF103hG_S57_L001.R2.airr.tsv`、`KKF103hG_S57_L001.integrated.tsv`、`KKF103hG_S57_L001.integrated_counts.tsv` も自動作成します。
+  - 実行後、同じフォルダに `KKF103hG_S57_L001.R1.airr.tsv`、`KKF103hG_S57_L001.R2.airr.tsv`、`KKF103hG_S57_L001.integrated.tsv`、`KKF103hG_S57_L001.integrated_counts.tsv`、`KKF103hG_S57_L001.integrated_counts.xlsx` も自動作成します。
   - `Browse` ボタンで保存先を指定します。
 
 - `Keep query FASTA`
@@ -400,9 +411,9 @@ GUI が開いたら、R1 FASTQ、R2 FASTQ、出力 TSV、IgBLAST database など
 
 - `Run`
   - FASTQ から中間 FASTA を作成し、IgBLAST を実行して AIRR TSV を作成します。
-  - IgBLAST完了後、生AIRR TSVからR1 TSV、R2 TSV、統合TSV、集計TSVも作成します。
+  - IgBLAST完了後、生AIRR TSVからR1 TSV、R2 TSV、統合TSV、集計TSV、集計Excelも作成します。
   - 実行中は処理が完了するまで待ちます。
-  - 成功すると、出力TSV、R1 TSV、R2 TSV、統合TSV、集計TSVの場所と処理したread数が表示されます。
+  - 成功すると、出力TSV、R1 TSV、R2 TSV、統合TSV、集計TSV、集計Excelの場所と処理したread数が表示されます。
   - GUIではIgBLASTの作業ファイルをPC内のローカル一時フォルダで作り、完了後にResultsフォルダへコピーします。Desktop/OneDrive配下へ巨大TSVを長時間直接書き続けることを避けるためです。
 
 ### ログ表示欄

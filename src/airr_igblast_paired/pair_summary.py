@@ -3,7 +3,10 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Literal
+
+from .xlsx_writer import write_rows_xlsx
 
 
 ReadLabel = Literal["R1", "R2"]
@@ -15,6 +18,7 @@ class DerivedTsvPaths:
     r2_tsv: Path
     integrated_tsv: Path
     counts_tsv: Path
+    counts_xlsx: Path
 
 
 @dataclass(frozen=True)
@@ -23,6 +27,7 @@ class PairSummaryStats:
     r1_rows: int
     r2_rows: int
     junction_aa_conflicts: int
+    included_in_counts: int
     unique_final_clonotypes: int
 
 
@@ -42,6 +47,7 @@ def default_derived_tsv_paths(output_tsv: str | Path) -> DerivedTsvPaths:
         r2_tsv=output.with_name(f"{sample}.R2.airr.tsv"),
         integrated_tsv=output.with_name(f"{sample}.integrated.tsv"),
         counts_tsv=output.with_name(f"{sample}.integrated_counts.tsv"),
+        counts_xlsx=output.with_name(f"{sample}.integrated_counts.xlsx"),
     )
 
 
@@ -51,7 +57,7 @@ def split_and_integrate_airr_tsv(
 ) -> tuple[DerivedTsvPaths, PairSummaryStats]:
     input_path = Path(input_tsv)
     derived = paths or default_derived_tsv_paths(input_path)
-    for path in (derived.r1_tsv, derived.r2_tsv, derived.integrated_tsv, derived.counts_tsv):
+    for path in (derived.r1_tsv, derived.r2_tsv, derived.integrated_tsv, derived.counts_tsv, derived.counts_xlsx):
         path.parent.mkdir(parents=True, exist_ok=True)
 
     pairs: dict[str, dict[ReadLabel, dict[str, str]]] = {}
@@ -65,7 +71,8 @@ def split_and_integrate_airr_tsv(
             _write_empty_tsv(derived.r2_tsv)
             _write_integrated_tsv(derived.integrated_tsv, [])
             _write_counts_tsv(derived.counts_tsv, [])
-            return derived, PairSummaryStats(0, 0, 0, 0, 0)
+            write_rows_xlsx(derived.counts_xlsx, COUNTS_FIELDNAMES, [], sheet_name="integrated_counts")
+            return derived, PairSummaryStats(0, 0, 0, 0, 0, 0)
 
         with (
             derived.r1_tsv.open("wt", encoding="utf-8", newline="") as r1_handle,
@@ -92,8 +99,10 @@ def split_and_integrate_airr_tsv(
     _write_integrated_tsv(derived.integrated_tsv, integrated_rows)
     counts_rows = _counts_rows(integrated_rows)
     _write_counts_tsv(derived.counts_tsv, counts_rows)
+    write_rows_xlsx(derived.counts_xlsx, COUNTS_FIELDNAMES, counts_rows, sheet_name="integrated_counts")
     conflicts = sum(1 for row in integrated_rows if row["junction_aa_status"] == "conflict")
-    return derived, PairSummaryStats(len(integrated_rows), r1_rows, r2_rows, conflicts, len(counts_rows))
+    included = sum(1 for row in integrated_rows if row["include_in_counts"] == "true")
+    return derived, PairSummaryStats(len(integrated_rows), r1_rows, r2_rows, conflicts, included, len(counts_rows))
 
 
 def pair_id_and_read_label(sequence_id: str) -> tuple[str, ReadLabel | None]:
@@ -115,6 +124,64 @@ def _is_value(value: str | None) -> bool:
         return False
     text = value.strip()
     return bool(text) and text.lower() not in {"na", "n/a", "none", "null"}
+
+
+_ALLELE_SUFFIX = re.compile(r"\*\d+(?:[A-Z])?$")
+
+
+def gene_candidate_set(call: str) -> str:
+    genes = set()
+    for part in (call or "").split(","):
+        gene = _ALLELE_SUFFIX.sub("", part.strip())
+        if gene and gene.lower() not in {"na", "n/a", "none", "null", "x"}:
+            genes.add(gene)
+    return ",".join(sorted(genes))
+
+
+def _is_productive(value: str) -> bool:
+    return value.strip().lower() in {"t", "true", "yes", "1"}
+
+
+def _junction_aa_exclude_reasons(junction_aa: str) -> list[str]:
+    if not _is_value(junction_aa):
+        return ["missing_junction_aa"]
+
+    reasons = []
+    if "*" in junction_aa:
+        reasons.append("junction_aa_has_stop")
+    if not junction_aa.startswith("C"):
+        reasons.append("junction_aa_not_c_start")
+    if not junction_aa.endswith(("W", "F")):
+        reasons.append("junction_aa_not_wf_end")
+    if not 5 <= len(junction_aa) <= 40:
+        reasons.append("junction_aa_length_out_of_range")
+    return reasons
+
+
+def _count_inclusion(
+    *,
+    final_v_call: str,
+    final_j_call: str,
+    final_junction_aa: str,
+    final_productive: str,
+) -> tuple[str, str, str, str]:
+    unique_v_gene_set = gene_candidate_set(final_v_call)
+    unique_j_gene_set = gene_candidate_set(final_j_call)
+    reasons = []
+    if not unique_v_gene_set:
+        reasons.append("missing_v_call")
+    if not unique_j_gene_set:
+        reasons.append("missing_j_call")
+    if not _is_productive(final_productive):
+        reasons.append("not_productive")
+    reasons.extend(_junction_aa_exclude_reasons(final_junction_aa))
+    include = not reasons
+    return (
+        "true" if include else "false",
+        "" if include else ";".join(reasons),
+        unique_v_gene_set,
+        unique_j_gene_set,
+    )
 
 
 def _get(row: dict[str, str] | None, field: str) -> str:
@@ -213,7 +280,12 @@ def _integrated_row(pair_id: str, pair_rows: dict[ReadLabel, dict[str, str]]) ->
         fallback_r2=True,
     )
 
-    usable_for_qasas = all(_is_value(value) for value in (final_v, final_j, final_junction_aa))
+    include_in_counts, exclude_reason, unique_v_gene_set, unique_j_gene_set = _count_inclusion(
+        final_v_call=final_v,
+        final_j_call=final_j,
+        final_junction_aa=final_junction_aa,
+        final_productive=final_productive,
+    )
 
     return {
         "pair_id": pair_id,
@@ -250,7 +322,10 @@ def _integrated_row(pair_id: str, pair_rows: dict[ReadLabel, dict[str, str]]) ->
         "productive_decision_reason": productive_reason,
         "r1_productive": _get(r1, "productive"),
         "r2_productive": _get(r2, "productive"),
-        "usable_for_qasas": "true" if usable_for_qasas else "false",
+        "unique_v_gene_set": unique_v_gene_set,
+        "unique_j_gene_set": unique_j_gene_set,
+        "include_in_counts": include_in_counts,
+        "exclude_reason": exclude_reason,
     }
 
 
@@ -289,7 +364,10 @@ INTEGRATED_FIELDNAMES = [
     "productive_decision_reason",
     "r1_productive",
     "r2_productive",
-    "usable_for_qasas",
+    "unique_v_gene_set",
+    "unique_j_gene_set",
+    "include_in_counts",
+    "exclude_reason",
 ]
 
 
@@ -301,71 +379,61 @@ def _write_integrated_tsv(path: Path, rows: list[dict[str, str]]) -> None:
 
 
 COUNTS_FIELDNAMES = [
-    "final_v_call",
-    "final_d_call",
-    "final_j_call",
+    "unique_v_gene_set",
+    "unique_j_gene_set",
     "final_junction_aa",
     "read_pair_count",
     "match_count",
     "conflict_count",
     "r1_only_count",
     "r2_only_count",
-    "none_count",
     "productive_true_count",
-    "productive_false_count",
-    "usable_for_qasas_count",
+    "canonical_junction_aa_count",
 ]
 
 
 def _counts_rows(integrated_rows: list[dict[str, str]]) -> list[dict[str, str]]:
     counts: dict[tuple[str, str, str], dict[str, int | str]] = {}
     for row in integrated_rows:
+        if row.get("include_in_counts", "").strip().lower() != "true":
+            continue
         key = (
-            row.get("final_v_call", ""),
-            row.get("final_d_call", ""),
-            row.get("final_j_call", ""),
+            row.get("unique_v_gene_set", ""),
+            row.get("unique_j_gene_set", ""),
             row.get("final_junction_aa", ""),
         )
         bucket = counts.setdefault(
             key,
             {
-                "final_v_call": key[0],
-                "final_d_call": key[1],
-                "final_j_call": key[2],
-                "final_junction_aa": key[3],
+                "unique_v_gene_set": key[0],
+                "unique_j_gene_set": key[1],
+                "final_junction_aa": key[2],
                 "read_pair_count": 0,
                 "match_count": 0,
                 "conflict_count": 0,
                 "r1_only_count": 0,
                 "r2_only_count": 0,
-                "none_count": 0,
                 "productive_true_count": 0,
-                "productive_false_count": 0,
-                "usable_for_qasas_count": 0,
+                "canonical_junction_aa_count": 0,
             },
         )
         bucket["read_pair_count"] = int(bucket["read_pair_count"]) + 1
         status_key = row.get("junction_aa_status", "none")
-        if status_key not in {"match", "conflict", "r1_only", "r2_only", "none"}:
-            status_key = "none"
+        if status_key not in {"match", "conflict", "r1_only", "r2_only"}:
+            continue
         bucket[f"{status_key}_count"] = int(bucket[f"{status_key}_count"]) + 1
 
         productive = row.get("final_productive", "").strip().lower()
         if productive in {"t", "true", "yes", "1"}:
             bucket["productive_true_count"] = int(bucket["productive_true_count"]) + 1
-        elif productive in {"f", "false", "no", "0"}:
-            bucket["productive_false_count"] = int(bucket["productive_false_count"]) + 1
-
-        if row.get("usable_for_qasas", "").strip().lower() == "true":
-            bucket["usable_for_qasas_count"] = int(bucket["usable_for_qasas_count"]) + 1
+        bucket["canonical_junction_aa_count"] = int(bucket["canonical_junction_aa_count"]) + 1
 
     sorted_rows = sorted(
         counts.values(),
         key=lambda item: (
             -int(item["read_pair_count"]),
-            str(item["final_v_call"]),
-            str(item["final_d_call"]),
-            str(item["final_j_call"]),
+            str(item["unique_v_gene_set"]),
+            str(item["unique_j_gene_set"]),
             str(item["final_junction_aa"]),
         ),
     )

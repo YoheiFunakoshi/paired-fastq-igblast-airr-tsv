@@ -28,9 +28,9 @@ class PipelineTests(unittest.TestCase):
                 self.assertTrue(str(query_fasta).startswith(str(work)))
                 self.assertTrue(str(output_tsv).startswith(str(work)))
                 output_tsv.write_text(
-                    "sequence_id\tsequence\tv_call\tj_call\tjunction_aa\n"
-                    "read1|R1\tAACCGG\tIGHV1\tIGHJ4\tCAR\n"
-                    "read1|R2\tAACCTT\tIGHV1\tIGHJ4\tCAR\n",
+                    "sequence_id\tsequence\tv_call\tj_call\tjunction_aa\tproductive\n"
+                    "read1|R1\tAACCGG\tIGHV1\tIGHJ4\tCARYW\tT\n"
+                    "read1|R2\tAACCTT\tIGHV1\tIGHJ4\tCARYW\tT\n",
                     encoding="utf-8",
                 )
                 return ["igblastn", "-query", str(query_fasta), "-out", str(output_tsv)]
@@ -53,7 +53,9 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue((root / "results" / "sample.R2.airr.tsv").exists())
             self.assertTrue((root / "results" / "sample.integrated.tsv").exists())
             self.assertTrue((root / "results" / "sample.integrated_counts.tsv").exists())
+            self.assertTrue((root / "results" / "sample.integrated_counts.xlsx").exists())
             self.assertEqual(result.pair_summary_stats.total_pairs, 1)
+            self.assertEqual(result.pair_summary_stats.included_in_counts, 1)
             self.assertEqual(result.pair_summary_stats.unique_final_clonotypes, 1)
             self.assertIn(">read1|R2\nAACCTT\n", query.read_text(encoding="utf-8"))
         finally:

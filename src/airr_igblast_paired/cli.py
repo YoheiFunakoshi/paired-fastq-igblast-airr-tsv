@@ -151,6 +151,8 @@ def _run(args: argparse.Namespace) -> int:
         print(f"wrote {result.integrated_tsv}", file=sys.stderr)
     if result.counts_tsv:
         print(f"wrote {result.counts_tsv}", file=sys.stderr)
+    if result.counts_xlsx:
+        print(f"wrote {result.counts_xlsx}", file=sys.stderr)
     if result.pair_summary_stats:
         print(
             "pair summary: "
@@ -158,6 +160,7 @@ def _run(args: argparse.Namespace) -> int:
             f"r1_rows={result.pair_summary_stats.r1_rows}, "
             f"r2_rows={result.pair_summary_stats.r2_rows}, "
             f"junction_aa_conflicts={result.pair_summary_stats.junction_aa_conflicts}, "
+            f"included_in_counts={result.pair_summary_stats.included_in_counts}, "
             f"unique_final_clonotypes={result.pair_summary_stats.unique_final_clonotypes}",
             file=sys.stderr,
         )

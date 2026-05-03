@@ -441,10 +441,13 @@ class App(ttk.Frame):
             )
         if result.counts_tsv:
             message += f"\nCounts TSV: {result.counts_tsv}"
+        if result.counts_xlsx:
+            message += f"\nCounts Excel: {result.counts_xlsx}"
         if pair_stats:
             message += (
                 f"\nintegrated_pairs={pair_stats.total_pairs}, "
                 f"junction_aa_conflicts={pair_stats.junction_aa_conflicts}, "
+                f"included_in_counts={pair_stats.included_in_counts}, "
                 f"unique_final_clonotypes={pair_stats.unique_final_clonotypes}"
             )
         self.messages.put(("done", message))

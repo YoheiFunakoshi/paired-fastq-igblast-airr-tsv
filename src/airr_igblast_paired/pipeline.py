@@ -27,12 +27,20 @@ class PipelineResult:
     r2_tsv: Path | None = None
     integrated_tsv: Path | None = None
     counts_tsv: Path | None = None
+    counts_xlsx: Path | None = None
     pair_summary_stats: PairSummaryStats | None = None
 
 
-def _build_derived_outputs(output_tsv: Path) -> tuple[Path, Path, Path, Path, PairSummaryStats]:
+def _build_derived_outputs(output_tsv: Path) -> tuple[Path, Path, Path, Path, Path, PairSummaryStats]:
     derived_paths, pair_stats = split_and_integrate_airr_tsv(output_tsv)
-    return derived_paths.r1_tsv, derived_paths.r2_tsv, derived_paths.integrated_tsv, derived_paths.counts_tsv, pair_stats
+    return (
+        derived_paths.r1_tsv,
+        derived_paths.r2_tsv,
+        derived_paths.integrated_tsv,
+        derived_paths.counts_tsv,
+        derived_paths.counts_xlsx,
+        pair_stats,
+    )
 
 
 def default_work_dir() -> Path:
@@ -98,7 +106,7 @@ def run_paired_igblast(
             )
             command = run_igblast(scratch_query, scratch_output, igblast_config)
             shutil.copy2(scratch_output, output_tsv)
-            r1_tsv, r2_tsv, integrated_tsv, counts_tsv, pair_stats = _build_derived_outputs(output_tsv)
+            r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
             if final_query_fasta:
                 shutil.copy2(scratch_query, final_query_fasta)
             success = True
@@ -111,6 +119,7 @@ def run_paired_igblast(
                 r2_tsv,
                 integrated_tsv,
                 counts_tsv,
+                counts_xlsx,
                 pair_stats,
             )
         finally:
@@ -131,7 +140,7 @@ def run_paired_igblast(
             strict_ids=strict_ids,
         )
         command = run_igblast(final_query_fasta, output_tsv, igblast_config)
-        r1_tsv, r2_tsv, integrated_tsv, counts_tsv, pair_stats = _build_derived_outputs(output_tsv)
+        r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
         return PipelineResult(
             stats,
             command,
@@ -141,6 +150,7 @@ def run_paired_igblast(
             r2_tsv,
             integrated_tsv,
             counts_tsv,
+            counts_xlsx,
             pair_stats,
         )
 
@@ -165,7 +175,7 @@ def run_paired_igblast(
             strict_ids=strict_ids,
         )
         command = run_igblast(temp_fasta, output_tsv, igblast_config)
-        r1_tsv, r2_tsv, integrated_tsv, counts_tsv, pair_stats = _build_derived_outputs(output_tsv)
+        r1_tsv, r2_tsv, integrated_tsv, counts_tsv, counts_xlsx, pair_stats = _build_derived_outputs(output_tsv)
         return PipelineResult(
             stats,
             command,
@@ -175,6 +185,7 @@ def run_paired_igblast(
             r2_tsv,
             integrated_tsv,
             counts_tsv,
+            counts_xlsx,
             pair_stats,
         )
     finally:
