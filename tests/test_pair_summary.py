@@ -91,6 +91,62 @@ class PairSummaryTests(unittest.TestCase):
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    def test_counts_use_exact_gene_sets_and_canonical_productive_filter(self) -> None:
+        root = Path(f"test_pair_summary_tmp_{uuid.uuid4().hex[:8]}")
+        shutil.rmtree(root, ignore_errors=True)
+        try:
+            root.mkdir()
+            input_tsv = root / "sample.airr.tsv"
+            input_tsv.write_text(
+                "\n".join(
+                    [
+                        "sequence_id\tv_call\td_call\tj_call\tjunction\tjunction_aa\tproductive",
+                        "setAB_1|R2\tIGHV4-61*01,IGHV4-59*01\tIGHD1\tIGHJ4*01\tAAATTT\tCVQGFDYW\tT",
+                        "setA_1|R2\tIGHV4-61*02\tIGHD1\tIGHJ4*02\tAAATTT\tCVQGFDYW\tT",
+                        "setAB_2|R2\tIGHV4-59*02,IGHV4-61*03\tIGHD2\tIGHJ4*03\tAAATTT\tCVQGFDYW\tT",
+                        "bad_start|R2\tIGHV4-61*01\tIGHD1\tIGHJ4*01\tAAATTT\tAVQGFDYW\tT",
+                        "bad_productive|R2\tIGHV4-61*01\tIGHD1\tIGHJ4*01\tAAATTT\tCVQGFDYW\tF",
+                        "missing_j|R2\tIGHV4-61*01\tIGHD1\t\tAAATTT\tCVQGFDYW\tT",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            paths, stats = split_and_integrate_airr_tsv(input_tsv)
+
+            self.assertEqual(stats.total_pairs, 6)
+            self.assertEqual(stats.included_in_counts, 3)
+            self.assertEqual(stats.unique_final_clonotypes, 2)
+
+            with paths.counts_tsv.open("rt", encoding="utf-8", newline="") as handle:
+                count_rows = list(csv.DictReader(handle, delimiter="\t"))
+
+            count_lookup = {
+                (row["unique_v_gene_set"], row["unique_j_gene_set"], row["final_junction_aa"]): row
+                for row in count_rows
+            }
+            self.assertEqual(
+                count_lookup[("IGHV4-59,IGHV4-61", "IGHJ4", "CVQGFDYW")]["read_pair_count"],
+                "2",
+            )
+            self.assertEqual(
+                count_lookup[("IGHV4-61", "IGHJ4", "CVQGFDYW")]["read_pair_count"],
+                "1",
+            )
+
+            with paths.integrated_tsv.open("rt", encoding="utf-8", newline="") as handle:
+                integrated = {row["pair_id"]: row for row in csv.DictReader(handle, delimiter="\t")}
+
+            self.assertEqual(integrated["bad_start"]["include_in_counts"], "false")
+            self.assertIn("junction_aa_not_c_start", integrated["bad_start"]["exclude_reason"])
+            self.assertEqual(integrated["bad_productive"]["include_in_counts"], "false")
+            self.assertIn("not_productive", integrated["bad_productive"]["exclude_reason"])
+            self.assertEqual(integrated["missing_j"]["include_in_counts"], "false")
+            self.assertIn("missing_j_call", integrated["missing_j"]["exclude_reason"])
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -62,7 +62,7 @@ KKF103に関するFASTQ、RG社作成Excel、ChatGPTによる確認Word、比較
 - `junction_aa` が不一致の場合も落としません。長い方を `final_junction_aa` とし、同じ長さならR2を優先します。
 - `v_call` はR2を優先します。R2はV領域側から読むためです。
 - `j_call`、`d_call`、`productive`、`junction` は、原則として `final_junction_aa` に採用したread側を優先し、空欄の場合はもう一方を使います。
-- QASASなどで使いやすいよう、`final_v_call`、`final_j_call`、`final_junction_aa` がそろう場合に `usable_for_qasas=true` とします。
+- 全pairは `integrated.tsv` に残し、最終集計に入れるかどうかは `include_in_counts` と `exclude_reason` で明示します。
 
 この統合ルールは「落とさない」暫定版です。将来的に、conflictをより厳しく扱う正確性重視版を別に作る余地を残しています。
 
